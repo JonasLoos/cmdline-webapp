@@ -45,10 +45,7 @@
             margin-bottom: 10px;
         }
         .status-indicator {
-            margin-left: 10px;
             padding: 2px 5px;
-            border-radius: 50%;
-            background-color: #f0f0f0;
         }
         .output-content {
             margin-top: 5px;
@@ -58,9 +55,18 @@
             white-space: pre-wrap;
             word-break: break-word;
         }
+        .output-content {
+            white-space: pre-wrap;
+            font-family: monospace;
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-left: 3px solid #007bff;
+            margin-top: 5px;
+        }
         .command-highlight {
             font-weight: bold;
             color: #0000FF;
+            margin-right: 1em;
         }
     </style>
 </head>
@@ -85,6 +91,7 @@
     <script>
         const activeCommands = new Set();
         const commandLogs = {};
+        const commandLogsFullyVisible = {};
 
         function sendCommand(command) {
             command = command || document.getElementById('command-input').value;
@@ -98,6 +105,7 @@
                 appendToChatLog(`Command sent: <span class="command-highlight">${command}</span>`, data.id);
                 activeCommands.add(data.id);
                 commandLogs[data.id] = [];
+                commandLogsFullyVisible[data.id] = false;
                 pollCommandStatus(data.id);
                 document.getElementById('command-input').value = '';
             })
@@ -130,20 +138,13 @@
         }
 
         function updateCommandMessage(commandId, status, output) {
-            console.log(commandId, status, output);
             const logEntry = document.getElementById(`log-${commandId}`);
             if (logEntry) {
                 logEntry.querySelector('.status-indicator').textContent = getStatusEmoji(status);
                 if (output) {
-                    commandLogs[commandId].push(output);
+                    commandLogs[commandId] = output.split('\n');
                     const logContent = logEntry.querySelector('.output-content') || createLogContent(commandId);
-                    logContent.textContent = commandLogs[commandId].join('\n');
-                    
-                    const lineCount = logContent.textContent.split('\n').length;
-                    if (lineCount <= 3) {
-                        logContent.style.display = "block";
-                        logEntry.querySelector('.log-button').textContent = "Hide Log";
-                    }
+                    updateLogContent(logContent, commandId);
                 }
 
                 // Update stop button visibility
@@ -157,7 +158,7 @@
         function createLogContent(commandId) {
             const logEntry = document.getElementById(`log-${commandId}`);
             const logButton = document.createElement('button');
-            logButton.textContent = 'Show Log';
+            logButton.textContent = 'Show Full Log';
             logButton.className = 'pure-button log-button';
             logButton.onclick = () => toggleLog(commandId);
             logEntry.appendChild(logButton);
@@ -170,16 +171,47 @@
             const logContent = document.createElement('div');
             logContent.id = `log-content-${commandId}`;
             logContent.className = 'output-content';
-            logContent.style.display = "none";
             logEntry.appendChild(logContent);
+            const logButtonEnd = document.createElement('button');
+            logButtonEnd.textContent = 'Collapse Log';
+            logButtonEnd.className = 'pure-button log-button';
+            logButtonEnd.style.display = "none";
+            logButtonEnd.onclick = () => toggleLog(commandId);
+            logEntry.appendChild(logButtonEnd);
             return logContent;
         }
 
-        function toggleLog(commandId) {
-            const logContent = document.getElementById(`log-content-${commandId}`);
+        function updateLogContent(logContent, commandId) {
+            let lines = commandLogs[commandId];
+            while (lines[lines.length-1].trim() === '') {
+                lines = lines.slice(0, -1);
+            }
+            const visibleLines = commandLogsFullyVisible[commandId] ? lines.join('\n') : (lines.length > 3 ? '...\n' : '') + lines.slice(-3).join('\n');
+            logContent.innerHTML = `<div class="visible-lines">${visibleLines}</div>`;
             const logButton = logContent.previousElementSibling.previousElementSibling;
-            logContent.style.display = logContent.style.display === "none" ? "block" : "none";
-            logButton.textContent = logContent.style.display === "none" ? "Show Log" : "Hide Log";
+            logButton.style.display = lines.length > 3 ? "inline-block" : "none";
+        }
+
+        function toggleLog(commandId) {
+            let lines = commandLogs[commandId];
+            while (lines[lines.length-1].trim() === '') {
+                lines = lines.slice(0, -1);
+            }
+            const logContent = document.getElementById(`log-content-${commandId}`);
+            const visibleLines = logContent.querySelector('.visible-lines');
+            const logButton = logContent.previousElementSibling.previousElementSibling;
+            const logButtonEnd = logContent.nextElementSibling;
+            commandLogsFullyVisible[commandId] ^= 1;
+
+            if (commandLogsFullyVisible[commandId]) {
+                visibleLines.innerHTML = lines.join('\n');
+                logButton.textContent = "Show Last 3 Lines";
+                logButtonEnd.style.display = "inline-block";
+            } else {
+                visibleLines.innerHTML = (lines.length > 3 ? '...\n' : '') + lines.slice(-3).join('\n');
+                logButton.textContent = "Show Full Log";
+                logButtonEnd.style.display = "none";
+            }
         }
 
         function stopCommand(commandId) {
@@ -190,9 +222,7 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.status === "stopping") {
-                    appendToChatLog(`Stopping command: ${commandId}`);
-                } else {
+                if (data.status !== "stopping") {
                     appendToChatLog(`Failed to stop command: ${commandId}`);
                 }
             })
@@ -233,7 +263,7 @@
             const logEntry = document.createElement('div');
             logEntry.className = 'chat-message';
             logEntry.id = `log-${commandId}`;
-            logEntry.innerHTML = `<span>${message}</span><span class="status-indicator">${getStatusEmoji('queued')}</span>`;
+            logEntry.innerHTML = `<span class="status-indicator">${getStatusEmoji('queued')}</span><span>${message}</span>`;
             chat.appendChild(logEntry);
             chat.scrollTop = chat.scrollHeight;
             return logEntry;
