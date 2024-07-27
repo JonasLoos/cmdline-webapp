@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROS2 Web Interface</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css">
+    <style>
+        body {
+            display: flex;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin-right: 20px;
+        }
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .sidebar {
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .ui-element {
+            margin-bottom: 10px;
+        }
+        .command-input {
+            margin-bottom: 10px;
+        }
+        .chat-message {
+            margin-bottom: 10px;
+        }
+        .status-indicator {
+            margin-left: 10px;
+            padding: 2px 5px;
+            border-radius: 50%;
+            background-color: #f0f0f0;
+        }
+        .output-content {
+            margin-top: 5px;
+            padding: 5px;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .command-highlight {
+            font-weight: bold;
+            color: #0000FF;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <h1>ROS2 Web Interface</h1>
+        <div id="chat" class="chat-container"></div>
+        <form class="pure-form" onsubmit="sendCommand(); return false;">
+            <input type="text" id="command-input" class="pure-input-1 command-input" placeholder="Command">
+            <button type="submit" class="pure-button pure-button-primary">Send Command</button>
+            <button type="button" class="pure-button" onclick="addButton()">Add Button</button>
+        </form>
+    </div>
+    <div class="sidebar">
+        <div class="sidebar-content">
+            <h2>Custom Buttons</h2>
+            <div id="ui-elements"></div>
+        </div>
+        <button type="button" class="pure-button clear-all-button" onclick="clearAllInputs()">Clear All Inputs</button>
+    </div>
+
+    <script>
+        const activeCommands = new Set();
+        const commandLogs = {};
+
+        function sendCommand(command) {
+            command = command || document.getElementById('command-input').value;
+            fetch('/send_command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ command: command }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                appendToChatLog(`Command sent: <span class="command-highlight">${command}</span>`, data.id);
+                activeCommands.add(data.id);
+                commandLogs[data.id] = [];
+                pollCommandStatus(data.id);
+                document.getElementById('command-input').value = '';
+            })
+            .catch(error => appendToChatLog(`Error sending command: ${error}`));
+        }
+
+        function pollCommandStatus(commandId) {
+            const intervalId = setInterval(() => {
+                if (!activeCommands.has(commandId)) {
+                    clearInterval(intervalId);
+                    return;
+                }
+                fetch('/get_status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: commandId }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    updateCommandMessage(commandId, data.status, data.output);
+                    if (data.status !== "queued" && data.status !== "running") {
+                        activeCommands.delete(commandId);
+                    }
+                })
+                .catch(error => {
+                    appendToChatLog(`Error getting status: ${error}`);
+                    activeCommands.delete(commandId);
+                });
+            }, 100);
+        }
+
+        function updateCommandMessage(commandId, status, output) {
+            console.log(commandId, status, output);
+            const logEntry = document.getElementById(`log-${commandId}`);
+            if (logEntry) {
+                logEntry.querySelector('.status-indicator').textContent = getStatusEmoji(status);
+                if (output) {
+                    commandLogs[commandId].push(output);
+                    const logContent = logEntry.querySelector('.output-content') || createLogContent(commandId);
+                    logContent.textContent = commandLogs[commandId].join('\n');
+                    
+                    const lineCount = logContent.textContent.split('\n').length;
+                    if (lineCount <= 3) {
+                        logContent.style.display = "block";
+                        logEntry.querySelector('.log-button').textContent = "Hide Log";
+                    }
+                }
+
+                // Update stop button visibility
+                const stopButton = logEntry.querySelector('#stop-button-' + commandId);
+                if (stopButton) {
+                    stopButton.style.display = (status === "running" || status === "queued") ? "inline-block" : "none";
+                }
+            }
+        }
+
+        function createLogContent(commandId) {
+            const logEntry = document.getElementById(`log-${commandId}`);
+            const logButton = document.createElement('button');
+            logButton.textContent = 'Show Log';
+            logButton.className = 'pure-button log-button';
+            logButton.onclick = () => toggleLog(commandId);
+            logEntry.appendChild(logButton);
+            const stopButton = document.createElement('button');
+            stopButton.textContent = 'Stop';
+            stopButton.id = `stop-button-${commandId}`;
+            stopButton.className = 'pure-button stop-button';
+            stopButton.onclick = () => stopCommand(commandId);
+            logEntry.appendChild(stopButton);
+            const logContent = document.createElement('div');
+            logContent.id = `log-content-${commandId}`;
+            logContent.className = 'output-content';
+            logContent.style.display = "none";
+            logEntry.appendChild(logContent);
+            return logContent;
+        }
+
+        function toggleLog(commandId) {
+            const logContent = document.getElementById(`log-content-${commandId}`);
+            const logButton = logContent.previousElementSibling.previousElementSibling;
+            logContent.style.display = logContent.style.display === "none" ? "block" : "none";
+            logButton.textContent = logContent.style.display === "none" ? "Show Log" : "Hide Log";
+        }
+
+        function stopCommand(commandId) {
+            fetch('/stop_command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: commandId }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "stopping") {
+                    appendToChatLog(`Stopping command: ${commandId}`);
+                } else {
+                    appendToChatLog(`Failed to stop command: ${commandId}`);
+                }
+            })
+            .catch(error => appendToChatLog(`Error stopping command: ${error}`));
+        }
+
+        function addButton() {
+            const command = document.getElementById('command-input').value;
+            const element = document.createElement('div');
+            element.className = 'ui-element';
+            element.innerHTML = `
+                <button class="pure-button pure-button-primary" onclick="sendCommand('${command}')">${command}</button>
+                <button class="pure-button" onclick="editElement(this)">Edit</button>
+                <button class="pure-button" onclick="deleteElement(this)">Delete</button>
+            `;
+            document.getElementById('ui-elements').appendChild(element);
+            saveButtons();
+        }
+
+        function editElement(button) {
+            const element = button.closest('.ui-element');
+            const commandButton = element.querySelector('.pure-button-primary');
+            const newCommand = prompt("Enter new command:", commandButton.textContent);
+            if (newCommand) {
+                commandButton.textContent = newCommand;
+                commandButton.onclick = () => sendCommand(newCommand);
+                saveButtons();
+            }
+        }
+
+        function deleteElement(button) {
+            button.closest('.ui-element').remove();
+            saveButtons();
+        }
+
+        function appendToChatLog(message, commandId) {
+            const chat = document.getElementById('chat');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'chat-message';
+            logEntry.id = `log-${commandId}`;
+            logEntry.innerHTML = `<span>${message}</span><span class="status-indicator">${getStatusEmoji('queued')}</span>`;
+            chat.appendChild(logEntry);
+            chat.scrollTop = chat.scrollHeight;
+            return logEntry;
+        }
+
+        function getStatusEmoji(status) {
+            return { running: '🔄', completed: '✅', failed: '❌', stopped: '🛑' }[status] || '❓';
+        }
+
+        function clearAllInputs() {
+            document.getElementById('command-input').value = '';
+            document.getElementById('ui-elements').innerHTML = '';
+            localStorage.removeItem('customButtons');
+        }
+
+        function saveButtons() {
+            const buttons = Array.from(document.querySelectorAll('.ui-element .pure-button-primary')).map(button => button.textContent);
+            localStorage.setItem('customButtons', JSON.stringify(buttons));
+        }
+
+        function loadButtons() {
+            const buttons = JSON.parse(localStorage.getItem('customButtons')) || [];
+            buttons.forEach(command => {
+                const element = document.createElement('div');
+                element.className = 'ui-element';
+                element.innerHTML = `
+                    <button class="pure-button pure-button-primary" onclick="sendCommand('${command}')">${command}</button>
+                    <button class="pure-button" onclick="editElement(this)">Edit</button>
+                    <button class="pure-button" onclick="deleteElement(this)">Delete</button>
+                `;
+                document.getElementById('ui-elements').appendChild(element);
+            });
+        }
+
+        window.onload = loadButtons;
+    </script>
+</body>
+</html>
