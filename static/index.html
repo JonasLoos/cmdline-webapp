@@ -230,11 +230,13 @@
         }
 
         function addButton() {
-            const command = document.getElementById('command-input').value;
+            const cmd_input = document.getElementById('command-input').value;
+            const command = cmd_input.replace(/'/g, "\\'");
+            const name = cmd_input.length > 20 ? cmd_input.slice(0, 17) + '...' : cmd_input;
             const element = document.createElement('div');
             element.className = 'ui-element';
             element.innerHTML = `
-                <button class="pure-button pure-button-primary" onclick="sendCommand('${command}')">${command}</button>
+                <button class="pure-button pure-button-primary" onclick="sendCommand('${command}')">${name}</button>
                 <button class="pure-button" onclick="editElement(this)">Edit</button>
                 <button class="pure-button" onclick="deleteElement(this)">Delete</button>
             `;
