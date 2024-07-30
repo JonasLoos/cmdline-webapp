@@ -27,7 +27,7 @@
             margin-bottom: 10px;
         }
         .sidebar {
-            width: 200px;
+            width: 300px;
             display: flex;
             flex-direction: column;
         }
@@ -67,6 +67,13 @@
             font-weight: bold;
             color: #0000FF;
             margin-right: 1em;
+        }
+        .command-controls {
+            margin-top: 5px;
+        }
+        .command-controls label {
+            display: block;
+            margin-bottom: 5px;
         }
     </style>
 </head>
@@ -183,7 +190,7 @@
 
         function updateLogContent(logContent, commandId) {
             let lines = commandLogs[commandId];
-            while (lines[lines.length-1].trim() === '') {
+            while (lines[lines.length-1] && lines[lines.length-1].trim() === '') {
                 lines = lines.slice(0, -1);
             }
             const visibleLines = commandLogsFullyVisible[commandId] ? lines.join('\n') : (lines.length > 3 ? '...\n' : '') + lines.slice(-3).join('\n');
@@ -232,16 +239,80 @@
         function addButton() {
             const cmd_input = document.getElementById('command-input').value;
             const command = cmd_input.replace(/'/g, "\\'");
-            const name = cmd_input.length > 20 ? cmd_input.slice(0, 17) + '...' : cmd_input;
+            const name = cmd_input;
             const element = document.createElement('div');
+            const controlsDiv = document.createElement('div');
+            controlsDiv.className = 'command-controls';
+            element.appendChild(controlsDiv);
+            const commandFunction = addCommandControls(controlsDiv, command);
             element.className = 'ui-element';
-            element.innerHTML = `
-                <button class="pure-button pure-button-primary" onclick="sendCommand('${command}')">${name}</button>
-                <button class="pure-button" onclick="editElement(this)">Edit</button>
-                <button class="pure-button" onclick="deleteElement(this)">Delete</button>
-            `;
+            const mainButton = document.createElement('button');
+            mainButton.className = 'pure-button pure-button-primary';
+            mainButton.textContent = name;
+            mainButton.onclick = () => sendCommand(commandFunction());
+            element.appendChild(mainButton);
+            const editButton = document.createElement('button');
+            editButton.className = 'pure-button';
+            editButton.textContent = 'Edit';
+            editButton.onclick = () => editElement(editButton);
+            element.appendChild(editButton);
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'pure-button';
+            deleteButton.textContent = 'Delete';
+            deleteButton.onclick = () => deleteElement(deleteButton);
+            element.appendChild(deleteButton);
             document.getElementById('ui-elements').appendChild(element);
             saveButtons();
+        }
+
+        function addCommandControls(container, command) {
+            const regex = /{{{([^}]+)}}}/g;
+            const args = [];
+            let match;
+            while ((match = regex.exec(command)) !== null) {
+                const [input_type, params] = match[1].split('(');
+                const input_id = `input-${Math.random().toString(36).substr(2, 9)}`;
+                if (input_type === 'checkbox') {
+                    const value = params.slice(0, -1);
+                    const label = document.createElement('label');
+                    label.innerText = `${input_type}(${value})`;
+                    container.appendChild(label);
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = input_id;
+                    label.appendChild(checkbox);
+                    // label.innerText += match[1];
+                    args.push(checkbox);
+                } else if (input_type === 'slider') {
+                    const [start, end] = params.slice(0, -1).split(',').map(Number);
+                    const label = document.createElement('label');
+                    label.innerText = `${input_type}(${start},${end})`;
+                    container.appendChild(label);
+                    const range = document.createElement('input');//, type='range', id=input_id, min=start, max=end, value=start);
+                    range.type = 'range';
+                    range.id = input_id;
+                    range.min = start;
+                    range.max = end;
+                    label.appendChild(range);
+                    // label.innerText += match[1];
+                    args.push(range);
+                }
+            }
+            const f = () => {
+                const a = args.slice();
+                return command.replace(regex, (match, p1) => {
+                    const [type, params] = p1.split('(');
+                    if (type === 'checkbox') {
+                        const value = params.slice(0, -1);
+                        return a.shift().checked ? value : '';
+                    } else if (type === 'slider') {
+                        const [start, end] = params.slice(0, -1).split(',').map(Number);
+                        return a.shift().value;
+                    }
+                    return match;
+                });
+            };
+            return f;
         }
 
         function editElement(button) {
@@ -250,7 +321,10 @@
             const newCommand = prompt("Enter new command:", commandButton.textContent);
             if (newCommand) {
                 commandButton.textContent = newCommand;
-                commandButton.onclick = () => sendCommand(newCommand);
+                const controlsDiv = element.querySelector('.command-controls');
+                controlsDiv.innerHTML = '';
+                commandFunction = addCommandControls(controlsDiv, newCommand);
+                commandButton.onclick = () => sendCommand(commandFunction());
                 saveButtons();
             }
         }
@@ -282,20 +356,58 @@
         }
 
         function saveButtons() {
-            const buttons = Array.from(document.querySelectorAll('.ui-element .pure-button-primary')).map(button => button.textContent);
+            const buttons = Array.from(document.querySelectorAll('.ui-element')).map(element => {
+                const commandButton = element.querySelector('.pure-button-primary');
+                return {
+                    command: commandButton.textContent,
+                    controls: Array.from(element.querySelectorAll('.command-controls input')).map(input => ({
+                        type: input.type,
+                        id: input.id,
+                        value: input.type === 'checkbox' ? input.checked : input.value,
+                        min: input.min,
+                        max: input.max
+                    }))
+                };
+            });
             localStorage.setItem('customButtons', JSON.stringify(buttons));
         }
 
         function loadButtons() {
             const buttons = JSON.parse(localStorage.getItem('customButtons')) || [];
-            buttons.forEach(command => {
+            buttons.forEach(buttonData => {
                 const element = document.createElement('div');
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = 'command-controls';
+                element.appendChild(controlsDiv);
+                const commandFunction = addCommandControls(controlsDiv, buttonData.command);
                 element.className = 'ui-element';
-                element.innerHTML = `
-                    <button class="pure-button pure-button-primary" onclick="sendCommand('${command}')">${command}</button>
-                    <button class="pure-button" onclick="editElement(this)">Edit</button>
-                    <button class="pure-button" onclick="deleteElement(this)">Delete</button>
-                `;
+                const mainButton = document.createElement('button');
+                mainButton.className = 'pure-button pure-button-primary';
+                mainButton.textContent = buttonData.command;
+                mainButton.onclick = () => sendCommand(commandFunction());
+                element.appendChild(mainButton);
+                const editButton = document.createElement('button');
+                editButton.className = 'pure-button';
+                editButton.textContent = '✏️';
+                editButton.onclick = () => editElement(editButton);
+                element.appendChild(editButton);
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'pure-button';
+                deleteButton.textContent = '❌';
+                deleteButton.onclick = () => deleteElement(deleteButton);
+                element.appendChild(deleteButton);
+                buttonData.controls.forEach(control => {
+                    const input = controlsDiv.querySelector(`#${control.id}`);
+                    if (input) {
+                        if (control.type === 'checkbox') {
+                            input.checked = control.value;
+                        } else {
+                            input.value = control.value;
+                            input.min = control.min;
+                            input.max = control.max;
+                        }
+                    }
+                });
                 document.getElementById('ui-elements').appendChild(element);
             });
         }
