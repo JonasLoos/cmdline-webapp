@@ -44,24 +44,21 @@
         .chat-message {
             margin-bottom: 10px;
         }
+        .chat-container > *:last-child {
+            margin-bottom: 5em;
+        }
         .status-indicator {
             padding: 2px 5px;
         }
         .output-content {
             margin-top: 5px;
-            padding: 5px;
+            padding: 10px;
             background-color: #f0f0f0;
             border-radius: 4px;
             white-space: pre-wrap;
             word-break: break-word;
-        }
-        .output-content {
-            white-space: pre-wrap;
             font-family: monospace;
-            background-color: #f0f0f0;
-            padding: 10px;
             border-left: 3px solid #007bff;
-            margin-top: 5px;
         }
         .command-highlight {
             font-weight: bold;
@@ -84,6 +81,10 @@
         }
         .ui-element input[type="range"] {
             width: 90%;
+        }
+        .ui-element button {
+            max-width: 100%;
+            overflow-x: clip;
         }
         .clear-all-button {
             margin-top: 10px;
@@ -251,7 +252,11 @@
         function addButton() {
             const cmd_input = document.getElementById('command-input').value;
             const command = cmd_input.replace(/'/g, "\\'");
-            const name = cmd_input;
+            drawButton(command);
+            saveButtons();
+        }
+
+        function drawButton(command) {
             const element = document.createElement('div');
             const controlsDiv = document.createElement('div');
             controlsDiv.className = 'command-controls';
@@ -260,21 +265,21 @@
             element.className = 'ui-element';
             const mainButton = document.createElement('button');
             mainButton.className = 'pure-button pure-button-primary';
-            mainButton.textContent = name;
+            mainButton.textContent = command;
+            mainButton.title = command;
             mainButton.onclick = () => sendCommand(commandFunction());
             element.appendChild(mainButton);
             const editButton = document.createElement('button');
             editButton.className = 'pure-button';
-            editButton.textContent = 'Edit';
+            editButton.textContent = '✏️';
             editButton.onclick = () => editElement(editButton);
             element.appendChild(editButton);
             const deleteButton = document.createElement('button');
             deleteButton.className = 'pure-button';
-            deleteButton.textContent = 'Delete';
+            deleteButton.textContent = '❌';
             deleteButton.onclick = () => deleteElement(deleteButton);
             element.appendChild(deleteButton);
             document.getElementById('ui-elements').appendChild(element);
-            saveButtons();
         }
 
         function addCommandControls(container, command) {
@@ -293,20 +298,18 @@
                     checkbox.type = 'checkbox';
                     checkbox.id = input_id;
                     label.appendChild(checkbox);
-                    // label.innerText += match[1];
                     args.push(checkbox);
                 } else if (input_type === 'slider') {
                     const [start, end] = params.slice(0, -1).split(',').map(Number);
                     const label = document.createElement('label');
                     label.innerText = `${input_type}(${start},${end})`;
                     container.appendChild(label);
-                    const range = document.createElement('input');//, type='range', id=input_id, min=start, max=end, value=start);
+                    const range = document.createElement('input');
                     range.type = 'range';
                     range.id = input_id;
                     range.min = start;
                     range.max = end;
                     label.appendChild(range);
-                    // label.innerText += match[1];
                     args.push(range);
                 }
             }
@@ -386,42 +389,7 @@
 
         function loadButtons() {
             const buttons = JSON.parse(localStorage.getItem('customButtons')) || [];
-            buttons.forEach(buttonData => {
-                const element = document.createElement('div');
-                const controlsDiv = document.createElement('div');
-                controlsDiv.className = 'command-controls';
-                element.appendChild(controlsDiv);
-                const commandFunction = addCommandControls(controlsDiv, buttonData.command);
-                element.className = 'ui-element';
-                const mainButton = document.createElement('button');
-                mainButton.className = 'pure-button pure-button-primary';
-                mainButton.textContent = buttonData.command;
-                mainButton.onclick = () => sendCommand(commandFunction());
-                element.appendChild(mainButton);
-                const editButton = document.createElement('button');
-                editButton.className = 'pure-button';
-                editButton.textContent = '✏️';
-                editButton.onclick = () => editElement(editButton);
-                element.appendChild(editButton);
-                const deleteButton = document.createElement('button');
-                deleteButton.className = 'pure-button';
-                deleteButton.textContent = '❌';
-                deleteButton.onclick = () => deleteElement(deleteButton);
-                element.appendChild(deleteButton);
-                buttonData.controls.forEach(control => {
-                    const input = controlsDiv.querySelector(`#${control.id}`);
-                    if (input) {
-                        if (control.type === 'checkbox') {
-                            input.checked = control.value;
-                        } else {
-                            input.value = control.value;
-                            input.min = control.min;
-                            input.max = control.max;
-                        }
-                    }
-                });
-                document.getElementById('ui-elements').appendChild(element);
-            });
+            buttons.forEach(x => drawButton(x.command));
         }
 
         window.onload = loadButtons;
