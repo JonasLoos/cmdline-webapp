@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ROS2 Web Interface</title>
+    <title>Commandline Web Interface</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css">
     <style>
         body {
@@ -75,21 +75,33 @@
             display: block;
             margin-bottom: 5px;
         }
+        .ui-element {
+            padding: 5px;
+            background-color: #f0f0f0;
+        }
+        .ui-element input[type="checkbox"] {
+            margin-left: 5px;
+        }
+        .ui-element input[type="range"] {
+            width: 90%;
+        }
+        .clear-all-button {
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
     <div class="main-container">
-        <h1>ROS2 Web Interface</h1>
         <div id="chat" class="chat-container"></div>
         <form class="pure-form" onsubmit="sendCommand(); return false;">
             <input type="text" id="command-input" class="pure-input-1 command-input" placeholder="Command">
             <button type="submit" class="pure-button pure-button-primary">Send Command</button>
-            <button type="button" class="pure-button" onclick="addButton()">Add Button</button>
+            <button type="button" class="pure-button" onclick="addButton()">Save</button>
         </form>
     </div>
     <div class="sidebar">
         <div class="sidebar-content">
-            <h2>Custom Buttons</h2>
+            <h2>Saved Commands</h2>
             <div id="ui-elements"></div>
         </div>
         <button type="button" class="pure-button clear-all-button" onclick="clearAllInputs()">Clear All Inputs</button>
