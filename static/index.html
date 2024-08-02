@@ -6,94 +6,113 @@
     <title>Commandline Web Interface</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css">
     <style>
-        body {
-            display: flex;
-            height: 100vh;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        .main-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            margin-right: 20px;
-        }
-        .chat-container {
-            flex: 1;
-            overflow-y: auto;
-            border: 1px solid #ccc;
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-        .sidebar {
-            width: 300px;
-            display: flex;
-            flex-direction: column;
-        }
-        .sidebar-content {
-            flex: 1;
-            overflow-y: auto;
-        }
-        .ui-element {
-            margin-bottom: 10px;
-        }
-        .command-input {
-            margin-bottom: 10px;
-        }
-        .chat-message {
-            margin-bottom: 10px;
-        }
-        .chat-container > *:last-child {
-            margin-bottom: 5em;
-        }
-        .status-indicator {
-            padding: 2px 5px;
-        }
-        .output-content {
-            margin-top: 5px;
-            padding: 10px;
-            background-color: #f0f0f0;
-            border-radius: 4px;
-            white-space: pre-wrap;
-            word-break: break-word;
-            font-family: monospace;
-            border-left: 3px solid #007bff;
-        }
-        .command-highlight {
-            font-weight: bold;
-            color: #0000FF;
-            margin-right: 1em;
-        }
-        .command-controls {
-            margin-top: 5px;
-        }
-        .command-controls label {
-            display: block;
-            margin-bottom: 5px;
-        }
-        .ui-element {
-            padding: 5px;
-            background-color: #f0f0f0;
-        }
-        .ui-element input[type="checkbox"] {
-            margin-left: 5px;
-        }
-        .ui-element input[type="range"] {
-            width: 90%;
-        }
-        .ui-element button {
-            max-width: 100%;
-            overflow-x: clip;
-        }
-        .clear-all-button {
-            margin-top: 10px;
-        }
+body {
+    display: flex;
+    height: 100vh;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+.main-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-right: 20px;
+}
+.chat-container {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 10px;
+}
+.sidebar {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+}
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+}
+.ui-element {
+    margin-bottom: 10px;
+}
+.command-input {
+    margin-bottom: 10px;
+}
+.chat-message {
+    margin-bottom: 10px;
+}
+.chat-container > *:last-child {
+    margin-bottom: 5em;
+}
+.status-indicator {
+    padding: 2px 5px;
+}
+.output-content {
+    margin-top: 5px;
+    padding: 10px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: monospace;
+    border-left: 3px solid #007bff;
+}
+.command-highlight {
+    font-weight: bold;
+    color: #0000FF;
+    margin-right: 1em;
+}
+.command-controls {
+    margin-top: 5px;
+}
+.command-controls label {
+    display: block;
+    margin-bottom: 5px;
+}
+.ui-element {
+    padding: 5px;
+    background-color: #f0f0f0;
+}
+.ui-element input[type="checkbox"] {
+    margin-left: 5px;
+}
+.ui-element input[type="range"] {
+    width: 90%;
+}
+.ui-element button {
+    max-width: 100%;
+    overflow-x: clip;
+}
+.clear-all-button {
+    margin-top: 10px;
+}
+.scroll-down-btn {
+    position: absolute;
+    bottom: 140px;
+    right: 360px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    cursor: pointer;
+    display: none;
+    transition: opacity 0.3s;
+}
+.scroll-down-btn.visible {
+    display: block
+}
     </style>
 </head>
 <body>
     <div class="main-container">
         <div id="chat" class="chat-container"></div>
+        <button id="scroll-down-btn" class="scroll-down-btn" onclick="scrollDown()">↓</button>
         <form class="pure-form" onsubmit="sendCommand(); return false;">
             <input type="text" id="command-input" class="pure-input-1 command-input" placeholder="Command">
             <button type="submit" class="pure-button pure-button-primary">Send Command</button>
@@ -109,286 +128,317 @@
     </div>
 
     <script>
-        const activeCommands = new Set();
-        const commandLogs = {};
-        const commandLogsFullyVisible = {};
+const activeCommands = new Set();
+const commandLogs = {};
+const commandLogsFullyVisible = {};
+const chatContainer = document.querySelector('.chat-container');
+const scrollDownBtn = document.getElementById('scroll-down-btn');
 
-        function sendCommand(command) {
-            command = command || document.getElementById('command-input').value;
-            fetch('/send_command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ command: command }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                appendToChatLog(`Command sent: <span class="command-highlight">${command}</span>`, data.id);
-                activeCommands.add(data.id);
-                commandLogs[data.id] = [];
-                commandLogsFullyVisible[data.id] = false;
-                pollCommandStatus(data.id);
-                document.getElementById('command-input').value = '';
-            })
-            .catch(error => appendToChatLog(`Error sending command: ${error}`));
+function toggleScrollDownButton() {
+  const { scrollTop, scrollHeight, clientHeight } = chatContainer;
+  const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10;
+  
+  if (isAtBottom) {
+    scrollDownBtn.classList.remove('visible');
+  } else {
+    scrollDownBtn.classList.add('visible');
+  }
+}
+
+function scrollToBottom() {
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+chatContainer.addEventListener('scroll', toggleScrollDownButton);
+scrollDownBtn.addEventListener('click', scrollToBottom);
+
+// Initial check
+toggleScrollDownButton();
+
+// Example: Add new message and show button if needed
+function addNewMessage(message) {
+  const messageElement = document.createElement('div');
+  messageElement.textContent = message;
+  chatContainer.querySelector('.chat-messages').appendChild(messageElement);
+  toggleScrollDownButton();
+}
+
+function sendCommand(command) {
+    command = command || document.getElementById('command-input').value;
+    fetch('/send_command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: command }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        appendToChatLog(`Command sent: <span class="command-highlight">${command}</span>`, data.id);
+        activeCommands.add(data.id);
+        commandLogs[data.id] = [];
+        commandLogsFullyVisible[data.id] = false;
+        pollCommandStatus(data.id);
+        document.getElementById('command-input').value = '';
+    })
+    .catch(error => appendToChatLog(`Error sending command: ${error}`));
+}
+
+function pollCommandStatus(commandId) {
+    const intervalId = setInterval(() => {
+        if (!activeCommands.has(commandId)) {
+            clearInterval(intervalId);
+            return;
         }
-
-        function pollCommandStatus(commandId) {
-            const intervalId = setInterval(() => {
-                if (!activeCommands.has(commandId)) {
-                    clearInterval(intervalId);
-                    return;
-                }
-                fetch('/get_status', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id: commandId }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    updateCommandMessage(commandId, data.status, data.output);
-                    if (data.status !== "queued" && data.status !== "running") {
-                        activeCommands.delete(commandId);
-                    }
-                })
-                .catch(error => {
-                    appendToChatLog(`Error getting status: ${error}`);
-                    activeCommands.delete(commandId);
-                });
-            }, 100);
-        }
-
-        function updateCommandMessage(commandId, status, output) {
-            const logEntry = document.getElementById(`log-${commandId}`);
-            if (logEntry) {
-                logEntry.querySelector('.status-indicator').textContent = getStatusEmoji(status);
-                if (output) {
-                    const lines = output.split('\n');
-                    while (lines[lines.length-1] && lines[lines.length-1].trim() === '') lines = lines.slice(0, -1);
-                    commandLogs[commandId] = output_lines
-                    const logContent = logEntry.querySelector('.output-content') || createLogContent(commandId);
-                    updateLogContent(logContent, commandId);
-                }
-
-                // Update stop button visibility
-                const stopButton = logEntry.querySelector('#stop-button-' + commandId);
-                if (stopButton) {
-                    stopButton.style.display = (status === "running" || status === "queued") ? "inline-block" : "none";
-                }
+        fetch('/get_status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: commandId }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            updateCommandMessage(commandId, data.status, data.output);
+            if (data.status !== "queued" && data.status !== "running") {
+                activeCommands.delete(commandId);
             }
+        })
+        .catch(error => {
+            appendToChatLog(`Error getting status: ${error}`);
+            activeCommands.delete(commandId);
+        });
+    }, 100);
+}
+
+function updateCommandMessage(commandId, status, output) {
+    const logEntry = document.getElementById(`log-${commandId}`);
+    if (logEntry) {
+        logEntry.querySelector('.status-indicator').textContent = getStatusEmoji(status);
+        if (output) {
+            const lines = output.split('\n');
+            while (lines[lines.length-1] && lines[lines.length-1].trim() === '') lines = lines.slice(0, -1);
+            commandLogs[commandId] = output_lines
+            const logContent = logEntry.querySelector('.output-content') || createLogContent(commandId);
+            updateLogContent(logContent, commandId);
         }
 
-        function createLogContent(commandId) {
-            const logEntry = document.getElementById(`log-${commandId}`);
-            const logButton = document.createElement('button');
-            logButton.textContent = 'Show Full Log';
-            logButton.className = 'pure-button log-button';
-            logButton.onclick = () => toggleLog(commandId);
-            logEntry.appendChild(logButton);
-            const stopButton = document.createElement('button');
-            stopButton.textContent = 'Stop';
-            stopButton.id = `stop-button-${commandId}`;
-            stopButton.className = 'pure-button stop-button';
-            stopButton.onclick = () => stopCommand(commandId);
-            logEntry.appendChild(stopButton);
-            const logContent = document.createElement('div');
-            logContent.id = `log-content-${commandId}`;
-            logContent.className = 'output-content';
-            logEntry.appendChild(logContent);
-            const logButtonEnd = document.createElement('button');
-            logButtonEnd.textContent = 'Collapse Log';
-            logButtonEnd.className = 'pure-button log-button';
-            logButtonEnd.style.display = "none";
-            logButtonEnd.onclick = () => toggleLog(commandId);
-            logEntry.appendChild(logButtonEnd);
-            return logContent;
+        // Update stop button visibility
+        const stopButton = logEntry.querySelector('#stop-button-' + commandId);
+        if (stopButton) {
+            stopButton.style.display = (status === "running" || status === "queued") ? "inline-block" : "none";
         }
+    }
+}
 
-        function updateLogContent(logContent, commandId) {
-            const lines = commandLogs[commandId];
-            const visibleLines = commandLogsFullyVisible[commandId] ? lines.join('\n') : (lines.length > 3 ? '...\n' : '') + lines.slice(-3).join('\n');
-            logContent.innerHTML = `<div class="visible-lines">${visibleLines}</div>`;
-            const logButton = logContent.previousElementSibling.previousElementSibling;
-            logButton.style.display = lines.length > 3 ? "inline-block" : "none";
+function createLogContent(commandId) {
+    const logEntry = document.getElementById(`log-${commandId}`);
+    const logButton = document.createElement('button');
+    logButton.textContent = 'Show Full Log';
+    logButton.className = 'pure-button log-button';
+    logButton.onclick = () => toggleLog(commandId);
+    logEntry.appendChild(logButton);
+    const stopButton = document.createElement('button');
+    stopButton.textContent = 'Stop';
+    stopButton.id = `stop-button-${commandId}`;
+    stopButton.className = 'pure-button stop-button';
+    stopButton.onclick = () => stopCommand(commandId);
+    logEntry.appendChild(stopButton);
+    const logContent = document.createElement('div');
+    logContent.id = `log-content-${commandId}`;
+    logContent.className = 'output-content';
+    logEntry.appendChild(logContent);
+    const logButtonEnd = document.createElement('button');
+    logButtonEnd.textContent = 'Collapse Log';
+    logButtonEnd.className = 'pure-button log-button';
+    logButtonEnd.style.display = "none";
+    logButtonEnd.onclick = () => toggleLog(commandId);
+    logEntry.appendChild(logButtonEnd);
+    return logContent;
+}
+
+function updateLogContent(logContent, commandId) {
+    const lines = commandLogs[commandId];
+    const visibleLines = commandLogsFullyVisible[commandId] ? lines.join('\n') : (lines.length > 3 ? '...\n' : '') + lines.slice(-3).join('\n');
+    logContent.innerHTML = `<div class="visible-lines">${visibleLines}</div>`;
+    const logButton = logContent.previousElementSibling.previousElementSibling;
+    logButton.style.display = lines.length > 3 ? "inline-block" : "none";
+}
+
+function toggleLog(commandId) {
+    const lines = commandLogs[commandId];
+    const logContent = document.getElementById(`log-content-${commandId}`);
+    const visibleLines = logContent.querySelector('.visible-lines');
+    const logButton = logContent.previousElementSibling.previousElementSibling;
+    const logButtonEnd = logContent.nextElementSibling;
+    commandLogsFullyVisible[commandId] ^= 1;
+
+    if (commandLogsFullyVisible[commandId]) {
+        visibleLines.innerHTML = lines.join('\n');
+        logButton.textContent = "Show Last 3 Lines";
+        logButtonEnd.style.display = "inline-block";
+    } else {
+        visibleLines.innerHTML = (lines.length > 3 ? '...\n' : '') + lines.slice(-3).join('\n');
+        logButton.textContent = "Show Full Log";
+        logButtonEnd.style.display = "none";
+    }
+}
+
+function stopCommand(commandId) {
+    fetch('/stop_command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: commandId }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status !== "stopping") {
+            appendToChatLog(`Failed to stop command: ${commandId}`);
         }
+    })
+    .catch(error => appendToChatLog(`Error stopping command: ${error}`));
+}
 
-        function toggleLog(commandId) {
-            const lines = commandLogs[commandId];
-            const logContent = document.getElementById(`log-content-${commandId}`);
-            const visibleLines = logContent.querySelector('.visible-lines');
-            const logButton = logContent.previousElementSibling.previousElementSibling;
-            const logButtonEnd = logContent.nextElementSibling;
-            commandLogsFullyVisible[commandId] ^= 1;
+function addButton() {
+    const cmd_input = document.getElementById('command-input').value;
+    const command = cmd_input.replace(/'/g, "\\'");
+    drawButton(command);
+    saveButtons();
+}
 
-            if (commandLogsFullyVisible[commandId]) {
-                visibleLines.innerHTML = lines.join('\n');
-                logButton.textContent = "Show Last 3 Lines";
-                logButtonEnd.style.display = "inline-block";
-            } else {
-                visibleLines.innerHTML = (lines.length > 3 ? '...\n' : '') + lines.slice(-3).join('\n');
-                logButton.textContent = "Show Full Log";
-                logButtonEnd.style.display = "none";
+function drawButton(command) {
+    const element = document.createElement('div');
+    const controlsDiv = document.createElement('div');
+    controlsDiv.className = 'command-controls';
+    element.appendChild(controlsDiv);
+    const commandFunction = addCommandControls(controlsDiv, command);
+    element.className = 'ui-element';
+    const mainButton = document.createElement('button');
+    mainButton.className = 'pure-button pure-button-primary';
+    mainButton.textContent = command;
+    mainButton.title = command;
+    mainButton.onclick = () => sendCommand(commandFunction());
+    element.appendChild(mainButton);
+    const editButton = document.createElement('button');
+    editButton.className = 'pure-button';
+    editButton.textContent = '✏️';
+    editButton.onclick = () => editElement(editButton);
+    element.appendChild(editButton);
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'pure-button';
+    deleteButton.textContent = '❌';
+    deleteButton.onclick = () => deleteElement(deleteButton);
+    element.appendChild(deleteButton);
+    document.getElementById('ui-elements').appendChild(element);
+}
+
+function addCommandControls(container, command) {
+    const regex = /{{{([^}]+)}}}/g;
+    const args = [];
+    let match;
+    while ((match = regex.exec(command)) !== null) {
+        const [input_type, params] = match[1].split('(');
+        const input_id = `input-${Math.random().toString(36).substr(2, 9)}`;
+        if (input_type === 'checkbox') {
+            const value = params.slice(0, -1);
+            const label = document.createElement('label');
+            label.innerText = `${input_type}(${value})`;
+            container.appendChild(label);
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = input_id;
+            label.appendChild(checkbox);
+            args.push(checkbox);
+        } else if (input_type === 'slider') {
+            const [start, end] = params.slice(0, -1).split(',').map(Number);
+            const label = document.createElement('label');
+            label.innerText = `${input_type}(${start},${end})`;
+            container.appendChild(label);
+            const range = document.createElement('input');
+            range.type = 'range';
+            range.id = input_id;
+            range.min = start;
+            range.max = end;
+            label.appendChild(range);
+            args.push(range);
+        }
+    }
+    const f = () => {
+        const a = args.slice();
+        return command.replace(regex, (match, p1) => {
+            const [type, params] = p1.split('(');
+            if (type === 'checkbox') {
+                const value = params.slice(0, -1);
+                return a.shift().checked ? value : '';
+            } else if (type === 'slider') {
+                const [start, end] = params.slice(0, -1).split(',').map(Number);
+                return a.shift().value;
             }
-        }
+            return match;
+        });
+    };
+    return f;
+}
 
-        function stopCommand(commandId) {
-            fetch('/stop_command', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: commandId }),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status !== "stopping") {
-                    appendToChatLog(`Failed to stop command: ${commandId}`);
-                }
-            })
-            .catch(error => appendToChatLog(`Error stopping command: ${error}`));
-        }
+function editElement(button) {
+    const element = button.closest('.ui-element');
+    const commandButton = element.querySelector('.pure-button-primary');
+    const newCommand = prompt("Enter new command:", commandButton.textContent);
+    if (newCommand) {
+        commandButton.textContent = newCommand;
+        const controlsDiv = element.querySelector('.command-controls');
+        controlsDiv.innerHTML = '';
+        commandFunction = addCommandControls(controlsDiv, newCommand);
+        commandButton.onclick = () => sendCommand(commandFunction());
+        saveButtons();
+    }
+}
 
-        function addButton() {
-            const cmd_input = document.getElementById('command-input').value;
-            const command = cmd_input.replace(/'/g, "\\'");
-            drawButton(command);
-            saveButtons();
-        }
+function deleteElement(button) {
+    button.closest('.ui-element').remove();
+    saveButtons();
+}
 
-        function drawButton(command) {
-            const element = document.createElement('div');
-            const controlsDiv = document.createElement('div');
-            controlsDiv.className = 'command-controls';
-            element.appendChild(controlsDiv);
-            const commandFunction = addCommandControls(controlsDiv, command);
-            element.className = 'ui-element';
-            const mainButton = document.createElement('button');
-            mainButton.className = 'pure-button pure-button-primary';
-            mainButton.textContent = command;
-            mainButton.title = command;
-            mainButton.onclick = () => sendCommand(commandFunction());
-            element.appendChild(mainButton);
-            const editButton = document.createElement('button');
-            editButton.className = 'pure-button';
-            editButton.textContent = '✏️';
-            editButton.onclick = () => editElement(editButton);
-            element.appendChild(editButton);
-            const deleteButton = document.createElement('button');
-            deleteButton.className = 'pure-button';
-            deleteButton.textContent = '❌';
-            deleteButton.onclick = () => deleteElement(deleteButton);
-            element.appendChild(deleteButton);
-            document.getElementById('ui-elements').appendChild(element);
-        }
+function appendToChatLog(message, commandId) {
+    const chat = document.getElementById('chat');
+    const logEntry = document.createElement('div');
+    logEntry.className = 'chat-message';
+    logEntry.id = `log-${commandId}`;
+    logEntry.innerHTML = `<span class="status-indicator">${getStatusEmoji('queued')}</span><span>${message}</span>`;
+    chat.appendChild(logEntry);
+    chat.scrollTop = chat.scrollHeight;
+    return logEntry;
+}
 
-        function addCommandControls(container, command) {
-            const regex = /{{{([^}]+)}}}/g;
-            const args = [];
-            let match;
-            while ((match = regex.exec(command)) !== null) {
-                const [input_type, params] = match[1].split('(');
-                const input_id = `input-${Math.random().toString(36).substr(2, 9)}`;
-                if (input_type === 'checkbox') {
-                    const value = params.slice(0, -1);
-                    const label = document.createElement('label');
-                    label.innerText = `${input_type}(${value})`;
-                    container.appendChild(label);
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.id = input_id;
-                    label.appendChild(checkbox);
-                    args.push(checkbox);
-                } else if (input_type === 'slider') {
-                    const [start, end] = params.slice(0, -1).split(',').map(Number);
-                    const label = document.createElement('label');
-                    label.innerText = `${input_type}(${start},${end})`;
-                    container.appendChild(label);
-                    const range = document.createElement('input');
-                    range.type = 'range';
-                    range.id = input_id;
-                    range.min = start;
-                    range.max = end;
-                    label.appendChild(range);
-                    args.push(range);
-                }
-            }
-            const f = () => {
-                const a = args.slice();
-                return command.replace(regex, (match, p1) => {
-                    const [type, params] = p1.split('(');
-                    if (type === 'checkbox') {
-                        const value = params.slice(0, -1);
-                        return a.shift().checked ? value : '';
-                    } else if (type === 'slider') {
-                        const [start, end] = params.slice(0, -1).split(',').map(Number);
-                        return a.shift().value;
-                    }
-                    return match;
-                });
-            };
-            return f;
-        }
+function getStatusEmoji(status) {
+    return { running: '🔄', completed: '✅', failed: '❌', stopped: '🛑' }[status] || '❓';
+}
 
-        function editElement(button) {
-            const element = button.closest('.ui-element');
-            const commandButton = element.querySelector('.pure-button-primary');
-            const newCommand = prompt("Enter new command:", commandButton.textContent);
-            if (newCommand) {
-                commandButton.textContent = newCommand;
-                const controlsDiv = element.querySelector('.command-controls');
-                controlsDiv.innerHTML = '';
-                commandFunction = addCommandControls(controlsDiv, newCommand);
-                commandButton.onclick = () => sendCommand(commandFunction());
-                saveButtons();
-            }
-        }
+function clearAllInputs() {
+    document.getElementById('command-input').value = '';
+    document.getElementById('ui-elements').innerHTML = '';
+    localStorage.removeItem('customButtons');
+}
 
-        function deleteElement(button) {
-            button.closest('.ui-element').remove();
-            saveButtons();
-        }
+function saveButtons() {
+    const buttons = Array.from(document.querySelectorAll('.ui-element')).map(element => {
+        const commandButton = element.querySelector('.pure-button-primary');
+        return {
+            command: commandButton.textContent,
+            controls: Array.from(element.querySelectorAll('.command-controls input')).map(input => ({
+                type: input.type,
+                id: input.id,
+                value: input.type === 'checkbox' ? input.checked : input.value,
+                min: input.min,
+                max: input.max
+            }))
+        };
+    });
+    localStorage.setItem('customButtons', JSON.stringify(buttons));
+}
 
-        function appendToChatLog(message, commandId) {
-            const chat = document.getElementById('chat');
-            const logEntry = document.createElement('div');
-            logEntry.className = 'chat-message';
-            logEntry.id = `log-${commandId}`;
-            logEntry.innerHTML = `<span class="status-indicator">${getStatusEmoji('queued')}</span><span>${message}</span>`;
-            chat.appendChild(logEntry);
-            chat.scrollTop = chat.scrollHeight;
-            return logEntry;
-        }
+function loadButtons() {
+    const buttons = JSON.parse(localStorage.getItem('customButtons')) || [];
+    buttons.forEach(x => drawButton(x.command));
+}
 
-        function getStatusEmoji(status) {
-            return { running: '🔄', completed: '✅', failed: '❌', stopped: '🛑' }[status] || '❓';
-        }
-
-        function clearAllInputs() {
-            document.getElementById('command-input').value = '';
-            document.getElementById('ui-elements').innerHTML = '';
-            localStorage.removeItem('customButtons');
-        }
-
-        function saveButtons() {
-            const buttons = Array.from(document.querySelectorAll('.ui-element')).map(element => {
-                const commandButton = element.querySelector('.pure-button-primary');
-                return {
-                    command: commandButton.textContent,
-                    controls: Array.from(element.querySelectorAll('.command-controls input')).map(input => ({
-                        type: input.type,
-                        id: input.id,
-                        value: input.type === 'checkbox' ? input.checked : input.value,
-                        min: input.min,
-                        max: input.max
-                    }))
-                };
-            });
-            localStorage.setItem('customButtons', JSON.stringify(buttons));
-        }
-
-        function loadButtons() {
-            const buttons = JSON.parse(localStorage.getItem('customButtons')) || [];
-            buttons.forEach(x => drawButton(x.command));
-        }
-
-        window.onload = loadButtons;
+window.onload = loadButtons;
     </script>
 </body>
 </html>
