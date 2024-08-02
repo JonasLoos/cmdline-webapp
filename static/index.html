@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Commandline Web Interface</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/purecss@3.0.0/build/pure-min.css">
     <style>
 body {
     display: flex;
@@ -12,6 +11,32 @@ body {
     margin: 0;
     padding: 20px;
     box-sizing: border-box;
+    font-family: sans-serif;
+}
+button {
+    display: inline-block;
+    line-height: normal;
+    white-space: nowrap;
+    vertical-align: middle;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    box-sizing: border-box;
+    font-family: inherit;
+    font-size: 100%;
+    padding: .5em 1em;
+    color: rgba(0,0,0,.8);
+    border: none transparent;
+    background-color: #e6e6e6;
+    text-decoration: none;
+    border-radius: 2px;
+}
+button:hover {
+    background-image: linear-gradient(transparent,rgba(0,0,0,.05) 40%,rgba(0,0,0,.1));
+}
+.button-primary {
+    color: #fff;
+    background-color: #007bff;
 }
 .main-container {
     flex: 1;
@@ -38,8 +63,19 @@ body {
 .ui-element {
     margin-bottom: 10px;
 }
-.command-input {
+#command-input {
     margin-bottom: 10px;
+    width: 100%;
+    overflow: visible;
+    line-height: 1.15;
+    padding: .5em .6em;
+    display: inline-block;
+    border: 1px solid #ccc;
+    box-shadow: inset 0 1px 3px #ddd;
+    border-radius: 4px;
+    vertical-align: middle;
+    box-sizing: border-box;
+    font-size: 100%;
 }
 .chat-message {
     margin-bottom: 10px;
@@ -113,10 +149,10 @@ body {
     <div class="main-container">
         <div id="chat" class="chat-container"></div>
         <button id="scroll-down-btn" class="scroll-down-btn" onclick="scrollDown()">↓</button>
-        <form class="pure-form" onsubmit="sendCommand(); return false;">
-            <input type="text" id="command-input" class="pure-input-1 command-input" placeholder="Command">
-            <button type="submit" class="pure-button pure-button-primary">Send Command</button>
-            <button type="button" class="pure-button" onclick="addButton()">Save</button>
+        <form onsubmit="sendCommand(); return false;">
+            <input type="text" id="command-input" placeholder="Command">
+            <button type="submit" class="button-primary">Send Command</button>
+            <button type="button" onclick="addButton()">Save</button>
         </form>
     </div>
     <div class="sidebar">
@@ -124,7 +160,7 @@ body {
             <h2>Saved Commands</h2>
             <div id="ui-elements"></div>
         </div>
-        <button type="button" class="pure-button clear-all-button" onclick="clearAllInputs()">Clear All Inputs</button>
+        <button type="button" class="clear-all-button" onclick="clearAllInputs()">Clear All Inputs</button>
     </div>
 
     <script>
@@ -136,7 +172,7 @@ const scrollDownBtn = document.getElementById('scroll-down-btn');
 
 function toggleScrollDownButton() {
   const { scrollTop, scrollHeight, clientHeight } = chatContainer;
-  const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10;
+  const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
   
   if (isAtBottom) {
     scrollDownBtn.classList.remove('visible');
@@ -231,13 +267,11 @@ function createLogContent(commandId) {
     const logEntry = document.getElementById(`log-${commandId}`);
     const logButton = document.createElement('button');
     logButton.textContent = 'Show Full Log';
-    logButton.className = 'pure-button log-button';
     logButton.onclick = () => toggleLog(commandId);
     logEntry.appendChild(logButton);
     const stopButton = document.createElement('button');
     stopButton.textContent = 'Stop';
     stopButton.id = `stop-button-${commandId}`;
-    stopButton.className = 'pure-button stop-button';
     stopButton.onclick = () => stopCommand(commandId);
     logEntry.appendChild(stopButton);
     const logContent = document.createElement('div');
@@ -246,7 +280,6 @@ function createLogContent(commandId) {
     logEntry.appendChild(logContent);
     const logButtonEnd = document.createElement('button');
     logButtonEnd.textContent = 'Collapse Log';
-    logButtonEnd.className = 'pure-button log-button';
     logButtonEnd.style.display = "none";
     logButtonEnd.onclick = () => toggleLog(commandId);
     logEntry.appendChild(logButtonEnd);
@@ -310,18 +343,16 @@ function drawButton(command) {
     const commandFunction = addCommandControls(controlsDiv, command);
     element.className = 'ui-element';
     const mainButton = document.createElement('button');
-    mainButton.className = 'pure-button pure-button-primary';
+    mainButton.className = 'button-primary';
     mainButton.textContent = command;
     mainButton.title = command;
     mainButton.onclick = () => sendCommand(commandFunction());
     element.appendChild(mainButton);
     const editButton = document.createElement('button');
-    editButton.className = 'pure-button';
     editButton.textContent = '✏️';
     editButton.onclick = () => editElement(editButton);
     element.appendChild(editButton);
     const deleteButton = document.createElement('button');
-    deleteButton.className = 'pure-button';
     deleteButton.textContent = '❌';
     deleteButton.onclick = () => deleteElement(deleteButton);
     element.appendChild(deleteButton);
@@ -378,7 +409,7 @@ function addCommandControls(container, command) {
 
 function editElement(button) {
     const element = button.closest('.ui-element');
-    const commandButton = element.querySelector('.pure-button-primary');
+    const commandButton = element.querySelector('.button-primary');
     const newCommand = prompt("Enter new command:", commandButton.textContent);
     if (newCommand) {
         commandButton.textContent = newCommand;
@@ -418,7 +449,7 @@ function clearAllInputs() {
 
 function saveButtons() {
     const buttons = Array.from(document.querySelectorAll('.ui-element')).map(element => {
-        const commandButton = element.querySelector('.pure-button-primary');
+        const commandButton = element.querySelector('.button-primary');
         return {
             command: commandButton.textContent,
             controls: Array.from(element.querySelectorAll('.command-controls input')).map(input => ({
