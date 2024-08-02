@@ -38,6 +38,10 @@ button:hover {
     color: #fff;
     background-color: #007bff;
 }
+code {
+  background: #eee;
+  padding: 0.25em;
+}
 .main-container {
     flex: 1;
     display: flex;
@@ -63,8 +67,15 @@ button:hover {
 .ui-element {
     margin-bottom: 10px;
 }
+.main-container > form {
+    display: flex;
+    width: 100%;
+}
+.input-wrapper {
+    flex-grow: 1;
+    margin-right: 10px;
+}
 #command-input {
-    margin-bottom: 10px;
     width: 100%;
     overflow: visible;
     line-height: 1.15;
@@ -76,6 +87,7 @@ button:hover {
     vertical-align: middle;
     box-sizing: border-box;
     font-size: 100%;
+    box-sizing: border-box;
 }
 .chat-message {
     margin-bottom: 10px;
@@ -170,15 +182,25 @@ button:hover {
         <div id="chat" class="chat-container"></div>
         <button id="scroll-down-btn" class="scroll-down-btn" onclick="scrollDown()">↓</button>
         <form onsubmit="sendCommand(); return false;">
-            <input type="text" id="command-input" placeholder="Command">
-            <button type="submit" class="button-primary">Send Command</button>
-            <button type="button" onclick="addButton()">Save</button>
+            <div class="input-wrapper"><input type="text" id="command-input" placeholder="Command"></div>
+            <button type="submit" class="button-primary">
+                <svg xmlns="http://www3.org/2000/svg" viewBox="0 0 24 24" height="1em">
+                    <path fill="#fff" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+            </button>
+            <button type="button" onclick="addButton()">➕</button>
         </form>
     </div>
     <div class="sidebar">
         <div class="sidebar-content">
             <h2>Saved Commands</h2>
             <div id="ui-elements"></div>
+            <p>
+                <strong>Instructions:</strong><br>
+                Press ➕ to add a new button with the current input.<br>
+                Add extra input fields with <code>{{{checkbox(value)}}}</code> or <code>{{{slider(start,end)}}}</code>.
+                E.g. <code>echo {{{checkbox(Hello)}}} {{{slider(1,10)}}}</code>
+            </p>
         </div>
         <button type="button" class="clear-all-button" onclick="clearAllInputs()">Clear All Inputs</button>
     </div>
@@ -357,6 +379,7 @@ function stopCommand(commandId) {
 // add a custom command button
 function addButton() {
     const command = document.getElementById('command-input').value.replace(/'/g, "\\'");
+    if (!command) return;
     drawButton(command);
     saveButtons();
 }
