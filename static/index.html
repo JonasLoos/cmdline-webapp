@@ -184,12 +184,16 @@ button:hover {
     </div>
 
     <script>
+// app state variables
 const activeCommands = new Set();
 const commandLogs = {};
 const commandLogsFullyVisible = {};
+
+// html elements
 const chatContainer = document.querySelector('.chat-container');
 const scrollDownBtn = document.getElementById('scroll-down-btn');
 
+// update visiblity of scroll down button
 function toggleScrollDownButton() {
   const { scrollTop, scrollHeight, clientHeight } = chatContainer;
   const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
@@ -201,17 +205,12 @@ function toggleScrollDownButton() {
   }
 }
 
-function scrollToBottom() {
-  chatContainer.scrollTop = chatContainer.scrollHeight;
-}
-
+// setup scroll down button
 chatContainer.addEventListener('scroll', toggleScrollDownButton);
-scrollDownBtn.addEventListener('click', scrollToBottom);
-
-// Initial check
+scrollDownBtn.addEventListener('click', () => {chatContainer.scrollTop = chatContainer.scrollHeight;});
 toggleScrollDownButton();
 
-// Example: Add new message and show button if needed
+// add a new message to the chat log
 function addNewMessage(message) {
   const messageElement = document.createElement('div');
   messageElement.textContent = message;
@@ -219,6 +218,7 @@ function addNewMessage(message) {
   toggleScrollDownButton();
 }
 
+// send a command to the backend for execution
 function sendCommand(command) {
     command = command || document.getElementById('command-input').value;
     fetch('/send_command', {
@@ -238,6 +238,7 @@ function sendCommand(command) {
     .catch(error => appendToChatLog(`Error sending command: ${error}`));
 }
 
+// poll command status of a running command
 function pollCommandStatus(commandId) {
     const intervalId = setInterval(() => {
         if (!activeCommands.has(commandId)) {
@@ -263,10 +264,11 @@ function pollCommandStatus(commandId) {
     }, 100);
 }
 
+// update command message with status and output
 function updateCommandMessage(commandId, status, output) {
     const logEntry = document.getElementById(`log-${commandId}`);
     if (logEntry) {
-        logEntry.querySelector('.status-indicator').textContent = getStatusEmoji(status);
+        logEntry.querySelector('.status-indicator').textContent = getStatusSymbol(status);
         if (output) {
             const lines = output.split('\n');
             while (!lines[lines.length-1] || lines[lines.length-1].trim() === '') lines.pop();
@@ -283,6 +285,7 @@ function updateCommandMessage(commandId, status, output) {
     }
 }
 
+// setup log content for a command
 function createLogContent(commandId) {
     const logEntry = document.getElementById(`log-${commandId}`);
     const logButton = document.createElement('button');
@@ -306,6 +309,7 @@ function createLogContent(commandId) {
     return logContent;
 }
 
+// update log content for a command
 function updateLogContent(logContent, commandId) {
     const lines = commandLogs[commandId];
     const visibleLines = commandLogsFullyVisible[commandId] ? lines.join('\n') : (lines.length <= 3 ? lines.join('\n') : '...\n' + lines.slice(-2).join('\n'));
@@ -314,6 +318,7 @@ function updateLogContent(logContent, commandId) {
     logButton.style.display = lines.length > 3 ? "inline-block" : "none";
 }
 
+// toggle full log visibility for a command
 function toggleLog(commandId) {
     const lines = commandLogs[commandId];
     const logContent = document.getElementById(`log-content-${commandId}`);
@@ -333,6 +338,7 @@ function toggleLog(commandId) {
     }
 }
 
+// stop a running command
 function stopCommand(commandId) {
     fetch('/stop_command', {
         method: 'POST',
@@ -348,13 +354,14 @@ function stopCommand(commandId) {
     .catch(error => appendToChatLog(`Error stopping command: ${error}`));
 }
 
+// add a custom command button
 function addButton() {
-    const cmd_input = document.getElementById('command-input').value;
-    const command = cmd_input.replace(/'/g, "\\'");
+    const command = document.getElementById('command-input').value.replace(/'/g, "\\'");
     drawButton(command);
     saveButtons();
 }
 
+// Draw a custom command button
 function drawButton(command) {
     const element = document.createElement('div');
     const controlsDiv = document.createElement('div');
@@ -381,6 +388,7 @@ function drawButton(command) {
     document.getElementById('ui-elements').appendChild(element);
 }
 
+// Add additional input controls to a command button
 function addCommandControls(container, command) {
     const regex = /{{{([^}]+)}}}/g;
     const args = [];
@@ -412,7 +420,9 @@ function addCommandControls(container, command) {
             args.push(range);
         }
     }
-    const f = () => {
+
+    // Return a function that generates the command string with the current input values
+    return () => {
         const a = args.slice();
         return command.replace(regex, (match, p1) => {
             const [type, params] = p1.split('(');
@@ -426,9 +436,9 @@ function addCommandControls(container, command) {
             return match;
         });
     };
-    return f;
 }
 
+// edit a custom command button
 function editElement(button) {
     const element = button.closest('.ui-element');
     const commandButton = element.querySelector('.button-primary');
@@ -443,32 +453,37 @@ function editElement(button) {
     }
 }
 
+// delete a custom command button
 function deleteElement(button) {
     button.closest('.ui-element').remove();
     saveButtons();
 }
 
+// add new message to chat log
 function appendToChatLog(message, commandId) {
     const chat = document.getElementById('chat');
     const logEntry = document.createElement('div');
     logEntry.className = 'chat-message';
     logEntry.id = `log-${commandId}`;
-    logEntry.innerHTML = `<span class="status-indicator">${getStatusEmoji('queued')}</span><span>${message}</span>`;
+    logEntry.innerHTML = `<span class="status-indicator">${getStatusSymbol('queued')}</span><span>${message}</span>`;
     chat.appendChild(logEntry);
     chat.scrollTop = chat.scrollHeight;
     return logEntry;
 }
 
-function getStatusEmoji(status) {
+// Get status symbol for a command status
+function getStatusSymbol(status) {
     return { running: '🔄', completed: '✅', failed: '❌', stopped: '🛑' }[status] || '❓';
 }
 
+// Clear all inputs and local storage
 function clearAllInputs() {
     document.getElementById('command-input').value = '';
     document.getElementById('ui-elements').innerHTML = '';
     localStorage.removeItem('customButtons');
 }
 
+// save custom command buttons to local storage
 function saveButtons() {
     const buttons = Array.from(document.querySelectorAll('.ui-element')).map(element => {
         const commandButton = element.querySelector('.button-primary');
@@ -486,11 +501,13 @@ function saveButtons() {
     localStorage.setItem('customButtons', JSON.stringify(buttons));
 }
 
+// Load custom command buttons from local storage
 function loadButtons() {
     const buttons = JSON.parse(localStorage.getItem('customButtons')) || [];
     buttons.forEach(x => drawButton(x.command));
 }
 
+// load custom command buttons on page load
 window.onload = loadButtons;
     </script>
 </body>
