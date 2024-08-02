@@ -111,6 +111,7 @@ button:hover {
 .ui-element {
     padding: 5px;
     background-color: #f0f0f0;
+    position: relative;
 }
 .ui-element input[type="checkbox"] {
     margin-left: 5px;
@@ -121,6 +122,24 @@ button:hover {
 .ui-element button {
     max-width: 100%;
     overflow-x: clip;
+    text-overflow: ellipsis;
+}
+.ui-element > .edit-button, .ui-element > .delete-button {
+    display: none;
+    width: 3em;
+    position: absolute;
+    top: 0;
+    right: 0;
+    opacity: 0.6;
+}
+.ui-element:hover > .edit-button, .ui-element:hover > .delete-button {
+    display: inline-block;
+}
+.edit-button:hover, .delete-button:hover {
+    opacity: 1;
+}
+.edit-button {
+    margin-right: 3em;
 }
 .clear-all-button {
     margin-top: 10px;
@@ -131,6 +150,7 @@ button:hover {
     right: 360px;
     background-color: #007bff;
     color: white;
+    padding: 0;
     border: none;
     border-radius: 50%;
     width: 40px;
@@ -349,10 +369,12 @@ function drawButton(command) {
     mainButton.onclick = () => sendCommand(commandFunction());
     element.appendChild(mainButton);
     const editButton = document.createElement('button');
+    editButton.className = 'edit-button'
     editButton.textContent = '✏️';
     editButton.onclick = () => editElement(editButton);
     element.appendChild(editButton);
     const deleteButton = document.createElement('button');
+    deleteButton.className = 'delete-button'
     deleteButton.textContent = '❌';
     deleteButton.onclick = () => deleteElement(deleteButton);
     element.appendChild(deleteButton);
