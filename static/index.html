@@ -162,7 +162,9 @@
             if (logEntry) {
                 logEntry.querySelector('.status-indicator').textContent = getStatusEmoji(status);
                 if (output) {
-                    commandLogs[commandId] = output.split('\n');
+                    const lines = output.split('\n');
+                    while (lines[lines.length-1] && lines[lines.length-1].trim() === '') lines = lines.slice(0, -1);
+                    commandLogs[commandId] = output_lines
                     const logContent = logEntry.querySelector('.output-content') || createLogContent(commandId);
                     updateLogContent(logContent, commandId);
                 }
@@ -202,10 +204,7 @@
         }
 
         function updateLogContent(logContent, commandId) {
-            let lines = commandLogs[commandId];
-            while (lines[lines.length-1] && lines[lines.length-1].trim() === '') {
-                lines = lines.slice(0, -1);
-            }
+            const lines = commandLogs[commandId];
             const visibleLines = commandLogsFullyVisible[commandId] ? lines.join('\n') : (lines.length > 3 ? '...\n' : '') + lines.slice(-3).join('\n');
             logContent.innerHTML = `<div class="visible-lines">${visibleLines}</div>`;
             const logButton = logContent.previousElementSibling.previousElementSibling;
@@ -213,10 +212,7 @@
         }
 
         function toggleLog(commandId) {
-            let lines = commandLogs[commandId];
-            while (lines[lines.length-1].trim() === '') {
-                lines = lines.slice(0, -1);
-            }
+            const lines = commandLogs[commandId];
             const logContent = document.getElementById(`log-content-${commandId}`);
             const visibleLines = logContent.querySelector('.visible-lines');
             const logButton = logContent.previousElementSibling.previousElementSibling;
