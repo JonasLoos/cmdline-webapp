@@ -42,6 +42,11 @@ code {
   background: #eee;
   padding: 0.25em;
 }
+code[onClick]:hover {
+    border-bottom: 3px solid #007bff;
+    border-radius: 4px;
+    cursor: pointer;
+}
 .main-container {
     flex: 1;
     display: flex;
@@ -110,7 +115,7 @@ code {
 }
 .command-highlight {
     font-weight: bold;
-    color: #0000FF;
+    font-size: 120%;
     margin-right: 1em;
 }
 .command-controls {
@@ -181,7 +186,7 @@ code {
     <div class="main-container">
         <div id="chat" class="chat-container"></div>
         <button id="scroll-down-btn" class="scroll-down-btn" onclick="scrollDown()">↓</button>
-        <form onsubmit="sendCommand(); return false;">
+        <form onsubmit="sendCommand();cmd_input.focus();return false;">
             <div class="input-wrapper"><input type="text" id="command-input" placeholder="Command"></div>
             <button type="submit" class="button-primary">
                 <svg xmlns="http://www3.org/2000/svg" viewBox="0 0 24 24" height="1em">
@@ -198,8 +203,8 @@ code {
             <p>
                 <strong>Instructions:</strong><br>
                 Press ➕ to add a new button with the current input.<br>
-                Add extra input fields with <code>{{{checkbox(value)}}}</code> or <code>{{{slider(start,end)}}}</code>.
-                E.g. <code>echo {{{checkbox(Hello)}}} {{{slider(1,10)}}}</code>
+                Add extra input fields with <code onclick="cmd_input.value+=this.innerText;cmd_input.focus()">{{{checkbox(value)}}}</code> or <code onclick="cmd_input.value+=this.innerText;cmd_input.focus()">{{{slider(start,end)}}}</code>.
+                E.g. <code onclick="cmd_input.value=this.innerText;cmd_input.focus()">echo {{{checkbox(Hello)}}} {{{slider(1,10)}}}</code>
             </p>
         </div>
         <button type="button" class="clear-all-button" onclick="clearAllInputs()">Clear All Inputs</button>
@@ -214,6 +219,7 @@ const commandLogsFullyVisible = {};
 // html elements
 const chatContainer = document.querySelector('.chat-container');
 const scrollDownBtn = document.getElementById('scroll-down-btn');
+const cmd_input = document.getElementById('command-input');
 
 // update visiblity of scroll down button
 function toggleScrollDownButton() {
@@ -242,7 +248,7 @@ function addNewMessage(message) {
 
 // send a command to the backend for execution
 function sendCommand(command) {
-    command = command || document.getElementById('command-input').value;
+    command = command || cmd_input.value;
     fetch('/send_command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -250,12 +256,12 @@ function sendCommand(command) {
     })
     .then(response => response.json())
     .then(data => {
-        appendToChatLog(`Command sent: <span class="command-highlight">${command}</span>`, data.id);
+        appendToChatLog(`Command sent: <code class="command-highlight" onclick="cmd_input.value=this.innerText;cmd_input.focus()">${command}</code>`, data.id);
         activeCommands.add(data.id);
         commandLogs[data.id] = [];
         commandLogsFullyVisible[data.id] = false;
         pollCommandStatus(data.id);
-        document.getElementById('command-input').value = '';
+        cmd_input.value = '';
     })
     .catch(error => appendToChatLog(`Error sending command: ${error}`));
 }
@@ -378,7 +384,7 @@ function stopCommand(commandId) {
 
 // add a custom command button
 function addButton() {
-    const command = document.getElementById('command-input').value.replace(/'/g, "\\'");
+    const command = cmd_input.value.replace(/'/g, "\\'");
     if (!command) return;
     drawButton(command);
     saveButtons();
@@ -501,7 +507,7 @@ function getStatusSymbol(status) {
 
 // Clear all inputs and local storage
 function clearAllInputs() {
-    document.getElementById('command-input').value = '';
+    cmd_input.value = '';
     document.getElementById('ui-elements').innerHTML = '';
     localStorage.removeItem('customButtons');
 }
