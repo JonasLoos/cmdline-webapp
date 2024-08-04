@@ -35,7 +35,7 @@ def execute_command(command_id, command):
             if output == '' and process.poll() is not None:
                 break
             if output:
-                command_output[command_id] += output.strip() + "\n"
+                command_output[command_id] += output
 
         _, stderr = process.communicate()
 

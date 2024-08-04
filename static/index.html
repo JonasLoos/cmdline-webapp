@@ -347,7 +347,7 @@ function createLogContent(commandId) {
     const stopButton = document.createElement('button');
     Object.assign(stopButton, {textContent: 'Stop', id: `stop-button-${commandId}`, className: 'stop-button', onclick: () => stopCommand(commandId)});
     logEntry.appendChild(stopButton);
-    const logContent = document.createElement('div');
+    const logContent = document.createElement('pre');
     Object.assign(logContent, {id: `log-content-${commandId}`, className: 'output-content'});
     logEntry.appendChild(logContent);
     const logButtonEnd = document.createElement('button');
