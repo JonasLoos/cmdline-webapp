@@ -60,6 +60,11 @@ code[onClick]:hover {
     padding: 10px;
     margin-bottom: 10px;
 }
+.stop-button {
+    float: right;
+    margin-left: auto;
+    background-color: #dc3545;
+}
 .sidebar {
     width: 300px;
     display: flex;
@@ -136,6 +141,7 @@ code[onClick]:hover {
     padding: 5px;
     background-color: #f0f0f0;
     position: relative;
+    border-radius: 4px;
 }
 .ui-element input[type="checkbox"] {
     margin-left: 5px;
@@ -209,7 +215,7 @@ code[onClick]:hover {
             <p>
                 <strong>Instructions:</strong><br>
                 Press ➕ to add a new button with the current input.<br>
-                Add extra input fields with <code onclick="cmd_input.value+=this.innerText;cmd_input.focus()">{{{checkbox(value)}}}</code> or <code onclick="cmd_input.value+=this.innerText;cmd_input.focus()">{{{slider(start, end [,step])}}}</code>.
+                Add extra input fields with <code onclick="cmd_input.value+=this.innerText;cmd_input.focus()">{{{checkbox(value)}}}</code> or <code onclick="cmd_input.value+=this.innerText;cmd_input.focus()">{{{slider(start, end, step=1)}}}</code>.
                 E.g. <code onclick="cmd_input.value=this.innerText;cmd_input.focus()">echo {{{checkbox(Hello)}}} {{{slider(1,10)}}}</code>
             </p>
         </div>
@@ -270,6 +276,7 @@ function sendCommand(command) {
         cmd_input.value = '';
     })
     .catch(error => appendToChatLog(`Error sending command: ${error}`));
+    // setTimeout(() => {});  // TODO
 }
 
 // poll command status of a running command
@@ -323,22 +330,16 @@ function updateCommandMessage(commandId, status, output) {
 function createLogContent(commandId) {
     const logEntry = document.getElementById(`log-${commandId}`);
     const logButton = document.createElement('button');
-    logButton.textContent = 'Show Full Log';
-    logButton.onclick = () => toggleLog(commandId);
+    Object.assign(logButton, {textContent: 'Show Full Log', onclick: () => toggleLog(commandId)});
     logEntry.appendChild(logButton);
     const stopButton = document.createElement('button');
-    stopButton.textContent = 'Stop';
-    stopButton.id = `stop-button-${commandId}`;
-    stopButton.onclick = () => stopCommand(commandId);
+    Object.assign(stopButton, {textContent: 'Stop', id: `stop-button-${commandId}`, className: 'stop-button', onclick: () => stopCommand(commandId)});
     logEntry.appendChild(stopButton);
     const logContent = document.createElement('div');
-    logContent.id = `log-content-${commandId}`;
-    logContent.className = 'output-content';
+    Object.assign(logContent, {id: `log-content-${commandId}`, className: 'output-content'});
     logEntry.appendChild(logContent);
     const logButtonEnd = document.createElement('button');
-    logButtonEnd.textContent = 'Collapse Log';
-    logButtonEnd.style.display = "none";
-    logButtonEnd.onclick = () => toggleLog(commandId);
+    Object.assign(logButtonEnd, {textContent: 'Collapse Log', style: 'display: none', onclick: () => toggleLog(commandId)});
     logEntry.appendChild(logButtonEnd);
     return logContent;
 }
@@ -431,6 +432,7 @@ function addCommandControls(container, command) {
     let match;
     while ((match = regex.exec(command)) !== null) {
         const [input_type, params] = match[1].split('(');
+        if (!input_type || !params) continue;
         const input_id = `input-${Math.random().toString(36).substr(2, 9)}`;
         if (input_type === 'checkbox') {
             const value = params.slice(0, -1);
