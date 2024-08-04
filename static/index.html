@@ -122,8 +122,15 @@ code[onClick]:hover {
     margin-top: 5px;
 }
 .command-controls label {
-    display: block;
     margin-bottom: 5px;
+}
+.slider-label {
+    display: flex;
+    justify-content: space-between;
+}
+.slider-label span {
+    display: flex;
+    flex: 0 0 auto;
 }
 .ui-element {
     padding: 5px;
@@ -134,7 +141,7 @@ code[onClick]:hover {
     margin-left: 5px;
 }
 .ui-element input[type="range"] {
-    width: 90%;
+    flex: 1 1 auto;
 }
 .ui-element button {
     max-width: 100%;
@@ -147,7 +154,7 @@ code[onClick]:hover {
     position: absolute;
     top: 0;
     right: 0;
-    opacity: 0.6;
+    opacity: 0.8;
 }
 .ui-element:hover > .edit-button, .ui-element:hover > .delete-button {
     display: inline-block;
@@ -202,7 +209,7 @@ code[onClick]:hover {
             <p>
                 <strong>Instructions:</strong><br>
                 Press ➕ to add a new button with the current input.<br>
-                Add extra input fields with <code onclick="cmd_input.value+=this.innerText;cmd_input.focus()">{{{checkbox(value)}}}</code> or <code onclick="cmd_input.value+=this.innerText;cmd_input.focus()">{{{slider(start,end)}}}</code>.
+                Add extra input fields with <code onclick="cmd_input.value+=this.innerText;cmd_input.focus()">{{{checkbox(value)}}}</code> or <code onclick="cmd_input.value+=this.innerText;cmd_input.focus()">{{{slider(start, end [,step])}}}</code>.
                 E.g. <code onclick="cmd_input.value=this.innerText;cmd_input.focus()">echo {{{checkbox(Hello)}}} {{{slider(1,10)}}}</code>
             </p>
         </div>
@@ -387,22 +394,23 @@ function addButton() {
     if (!command) return;
     drawButton(command);
     saveButtons();
+    cmd_input.value = '';
 }
 
 // Draw a custom command button
 function drawButton(command) {
     const element = document.createElement('div');
-    const controlsDiv = document.createElement('div');
-    controlsDiv.className = 'command-controls';
-    element.appendChild(controlsDiv);
-    const commandFunction = addCommandControls(controlsDiv, command);
-    element.className = 'ui-element';
     const mainButton = document.createElement('button');
     mainButton.className = 'button-primary';
     mainButton.textContent = command;
     mainButton.title = command;
     mainButton.onclick = () => sendCommand(commandFunction());
     element.appendChild(mainButton);
+    const controlsDiv = document.createElement('div');
+    controlsDiv.className = 'command-controls';
+    element.appendChild(controlsDiv);
+    const commandFunction = addCommandControls(controlsDiv, command);
+    element.className = 'ui-element';
     const editButton = document.createElement('button');
     editButton.className = 'edit-button'
     editButton.textContent = '✏️';
@@ -427,24 +435,27 @@ function addCommandControls(container, command) {
         if (input_type === 'checkbox') {
             const value = params.slice(0, -1);
             const label = document.createElement('label');
-            label.innerText = `${input_type}(${value})`;
             container.appendChild(label);
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.id = input_id;
             label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(value));
             args.push(checkbox);
         } else if (input_type === 'slider') {
-            const [start, end] = params.slice(0, -1).split(',').map(Number);
+            const [start, end, step=1] = params.slice(0, -1).split(',').map(Number);
             const label = document.createElement('label');
-            label.innerText = `${input_type}(${start},${end})`;
-            container.appendChild(label);
+            label.className = 'slider-label';
+            const label_start = document.createElement('span');
+            label_start.textContent = start;
+            label.appendChild(label_start);
             const range = document.createElement('input');
-            range.type = 'range';
-            range.id = input_id;
-            range.min = start;
-            range.max = end;
+            Object.assign(range, {type: 'range', id: input_id, min: start, max: end, step});
             label.appendChild(range);
+            const label_end = document.createElement('span');
+            label_end.textContent = end;
+            label.appendChild(label_end);
+            container.appendChild(label);
             args.push(range);
         }
     }
@@ -458,7 +469,7 @@ function addCommandControls(container, command) {
                 const value = params.slice(0, -1);
                 return a.shift().checked ? value : '';
             } else if (type === 'slider') {
-                const [start, end] = params.slice(0, -1).split(',').map(Number);
+                const [start, end, ...step_] = params.slice(0, -1).split(',').map(Number);
                 return a.shift().value;
             }
             return match;
