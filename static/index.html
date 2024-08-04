@@ -42,7 +42,7 @@ code {
   background: #eee;
   padding: 0.25em;
 }
-code[onClick]:hover {
+code[onClick]:hover, .command-highlight:hover {
     border-bottom: 3px solid #007bff;
     border-radius: 4px;
     cursor: pointer;
@@ -62,7 +62,6 @@ code[onClick]:hover {
 }
 .stop-button {
     float: right;
-    margin-left: auto;
     background-color: #dc3545;
 }
 .sidebar {
@@ -261,6 +260,7 @@ function addNewMessage(message) {
 // send a command to the backend for execution
 function sendCommand(command) {
     command = command || cmd_input.value;
+    cmd_input.value = '';
     fetch('/send_command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -268,15 +268,23 @@ function sendCommand(command) {
     })
     .then(response => response.json())
     .then(data => {
-        appendToChatLog(`Command sent: <code class="command-highlight" onclick="cmd_input.value=this.innerText;cmd_input.focus()">${command}</code>`, data.id);
-        activeCommands.add(data.id);
+        const commandHeader = document.createElement('span');
+        const commandElement = document.createElement('code');
+        commandElement.innerText = command;
+        commandElement.className = 'command-highlight';
+        commandElement.onclick = () => {cmd_input.value = command; cmd_input.focus();};
+        commandHeader.appendChild(commandElement);
+        appendToChatLog(commandHeader, data.id);
         commandLogs[data.id] = [];
         commandLogsFullyVisible[data.id] = false;
-        pollCommandStatus(data.id);
-        cmd_input.value = '';
+        createLogContent(data.id);
+        updateCommandMessage(data.id, data.status, data.output);
+        if (data.status === "queued" || data.status === "running") {
+            activeCommands.add(data.id);
+            pollCommandStatus(data.id);
+        }
     })
     .catch(error => appendToChatLog(`Error sending command: ${error}`));
-    // setTimeout(() => {});  // TODO
 }
 
 // poll command status of a running command
@@ -308,17 +316,21 @@ function pollCommandStatus(commandId) {
 // update command message with status and output
 function updateCommandMessage(commandId, status, output) {
     const logEntry = document.getElementById(`log-${commandId}`);
+    const logContent = logEntry.querySelector('.output-content');
+    let showLogBtn = false;
     if (logEntry) {
         logEntry.querySelector('.status-indicator').textContent = getStatusSymbol(status);
         if (output) {
             const lines = output.split('\n');
             while (!lines[lines.length-1] || lines[lines.length-1].trim() === '') lines.pop();
             commandLogs[commandId] = lines;
-            const logContent = logEntry.querySelector('.output-content') || createLogContent(commandId);
-            updateLogContent(logContent, commandId);
+            logContent.innerText = commandLogsFullyVisible[commandId] ? lines.join('\n') : (lines.length <= 3 ? lines.join('\n') : '...\n' + lines.slice(-2).join('\n'));
+            showLogBtn = lines.length > 3;
         }
 
         // Update stop button visibility
+        const logButton = logContent.previousElementSibling.previousElementSibling;
+        logButton.style.visibility = showLogBtn ? "initial" : "hidden";
         const stopButton = logEntry.querySelector('#stop-button-' + commandId);
         if (stopButton) {
             stopButton.style.display = (status === "running" || status === "queued") ? "inline-block" : "none";
@@ -344,30 +356,20 @@ function createLogContent(commandId) {
     return logContent;
 }
 
-// update log content for a command
-function updateLogContent(logContent, commandId) {
-    const lines = commandLogs[commandId];
-    const visibleLines = commandLogsFullyVisible[commandId] ? lines.join('\n') : (lines.length <= 3 ? lines.join('\n') : '...\n' + lines.slice(-2).join('\n'));
-    logContent.innerHTML = `<div class="visible-lines">${visibleLines}</div>`;
-    const logButton = logContent.previousElementSibling.previousElementSibling;
-    logButton.style.display = lines.length > 3 ? "inline-block" : "none";
-}
-
 // toggle full log visibility for a command
 function toggleLog(commandId) {
     const lines = commandLogs[commandId];
     const logContent = document.getElementById(`log-content-${commandId}`);
-    const visibleLines = logContent.querySelector('.visible-lines');
     const logButton = logContent.previousElementSibling.previousElementSibling;
     const logButtonEnd = logContent.nextElementSibling;
     commandLogsFullyVisible[commandId] ^= 1;
 
     if (commandLogsFullyVisible[commandId]) {
-        visibleLines.innerHTML = lines.join('\n');
+        logContent.innerText = lines.join('\n');
         logButton.textContent = "Collapse Log";
         logButtonEnd.style.display = "inline-block";
     } else {
-        visibleLines.innerHTML = lines.length <= 3 ? lines.join('\n') : '...\n' + lines.slice(-2).join('\n');
+        logContent.innerText = lines.length <= 3 ? lines.join('\n') : '...\n' + lines.slice(-2).join('\n');
         logButton.textContent = "Show Full Log";
         logButtonEnd.style.display = "none";
     }
@@ -506,7 +508,11 @@ function appendToChatLog(message, commandId) {
     const logEntry = document.createElement('div');
     logEntry.className = 'chat-message';
     logEntry.id = `log-${commandId}`;
-    logEntry.innerHTML = `<span class="status-indicator">${getStatusSymbol('queued')}</span><span>${message}</span>`;
+    const statusSymbol = document.createElement('span');
+    statusSymbol.className = 'status-indicator';
+    statusSymbol.innerText = getStatusSymbol('queued');
+    logEntry.appendChild(statusSymbol);
+    logEntry.appendChild(message instanceof HTMLElement ? message : document.createTextNode(message));
     chat.appendChild(logEntry);
     chat.scrollTop = chat.scrollHeight;
     return logEntry;

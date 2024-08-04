@@ -67,7 +67,8 @@ def send_command():
     command_status[command_id] = "queued"
     command_output[command_id] = ""
     threading.Thread(target=execute_command, args=(command_id, command), daemon=True).start()
-    return jsonify({"status": "queued", "id": command_id})
+    time.sleep(0.03)
+    return jsonify({"status": command_status[command_id], "id": command_id, "output": command_output[command_id]})
 
 
 @app.route('/get_status', methods=['POST'])
