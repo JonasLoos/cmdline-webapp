@@ -285,15 +285,15 @@ function sendCommand(command) {
         commandHeader.appendChild(commandElement);
         const filterInput = document.createElement('input');
         filterInput.type = 'text';
-        filterInput.placeholder = 'Filter output...';
+        filterInput.placeholder = 'filter output (regex) ...';
         filterInput.className = 'filter-input';
-        filterInput.addEventListener('input', () => updateCommandMessage(data.id, null, commandLogs[data.id].join('\n')));  // Update on input
+        filterInput.addEventListener('input', () => updateCommandMessage(data.id, null, commandLogs[data.id]));  // Update on input
         commandHeader.appendChild(filterInput);
         appendToChatLog(commandHeader, data.id);
         commandLogs[data.id] = [];
         commandLogsFullyVisible[data.id] = false;
         createLogContent(data.id);
-        updateCommandMessage(data.id, data.status, data.output);
+        updateCommandMessage(data.id, data.status, data.output.split('\n'));
         if (data.status === "queued" || data.status === "running") {
             activeCommands.add(data.id);
             pollCommandStatus(data.id);
@@ -329,7 +329,7 @@ function pollCommandStatus(commandId) {
 }
 
 // update command message with status and output
-function updateCommandMessage(commandId, status, output) {
+function updateCommandMessage(commandId, status, lines) {
     const logEntry = document.getElementById(`log-${commandId}`);
     const logContent = logEntry.querySelector('.output-content');
     const filterInput = logEntry.querySelector('.filter-input');
@@ -337,9 +337,8 @@ function updateCommandMessage(commandId, status, output) {
 
     if (logEntry) {
         if (status) logEntry.querySelector('.status-indicator').textContent = getStatusSymbol(status);
-        if (output) {
-            const lines = output.split('\n');
-            while (!lines[lines.length-1] || lines[lines.length-1].trim() === '') lines.pop();
+        if (lines) {
+            while (lines.length > 0 && !lines[lines.length-1] || lines[lines.length-1].trim() === '') lines.pop();
             commandLogs[commandId] = lines;
 
             // Filter lines based on the filter input value
@@ -380,25 +379,23 @@ function createLogContent(commandId) {
     Object.assign(logContent, {id: `log-content-${commandId}`, className: 'output-content'});
     logEntry.appendChild(logContent);
     const logButtonEnd = document.createElement('button');
-    Object.assign(logButtonEnd, {textContent: 'Collapse Log', style: 'display: none', onclick: () => toggleLog(commandId)});
+    Object.assign(logButtonEnd, {textContent: 'Collapse Log', id: `log-button-end-${commandId}`, style: 'display: none', onclick: () => toggleLog(commandId)});
     logEntry.appendChild(logButtonEnd);
     return logContent;
 }
 
 // toggle full log visibility for a command
 function toggleLog(commandId) {
-    const lines = commandLogs[commandId];
-    const logContent = document.getElementById(`log-content-${commandId}`);
-    const logButton = logContent.previousElementSibling.previousElementSibling;
-    const logButtonEnd = logContent.nextElementSibling;
     commandLogsFullyVisible[commandId] ^= 1;
+    const logButton = document.getElementById(`log-button-${commandId}`);
+    const logButtonEnd = document.getElementById(`log-button-end-${commandId}`);
+
+    updateCommandMessage(commandId, null, commandLogs[commandId]);
 
     if (commandLogsFullyVisible[commandId]) {
-        logContent.innerText = lines.join('\n');
         logButton.textContent = "Collapse Log";
         logButtonEnd.style.display = "inline-block";
     } else {
-        logContent.innerText = lines.length <= 3 ? lines.join('\n') : '...\n' + lines.slice(-2).join('\n');
         logButton.textContent = "Show Full Log";
         logButtonEnd.style.display = "none";
     }
