@@ -120,6 +120,9 @@ code[onClick]:hover, .command-highlight:hover {
     font-family: monospace;
     border-left: 3px solid #007bff;
 }
+.filter-highlight {
+    background-color: yellow;
+}
 .command-highlight {
     font-weight: bold;
     font-size: 120%;
@@ -193,6 +196,9 @@ code[onClick]:hover, .command-highlight:hover {
 }
 .scroll-down-btn.visible {
     display: block;
+}
+.highlight {
+    background-color: yellow;
 }
     </style>
 </head>
@@ -338,10 +344,17 @@ function updateCommandMessage(commandId, status, output) {
 
             // Filter lines based on the filter input value
             const filterValue = filterInput.value.toLowerCase();
-            const filteredLines = lines.filter(line => line.toLowerCase().includes(filterValue));
+            const regex = new RegExp(filterValue, 'gi');
+            const filteredLines = lines.filter(line => regex.test(line));
 
-            logContent.innerText = commandLogsFullyVisible[commandId] ? filteredLines.join('\n') : (filteredLines.length <= 3 ? filteredLines.join('\n') : '...\n' + filteredLines.slice(-2).join('\n'));
-            showLogBtn = filteredLines.length > 3;
+            // Highlight matched text
+            const highlightedLines = filteredLines.map(line => {
+                return line.replace(regex, match => `<span class="filter-highlight">${match}</span>`);
+            });
+
+            // Update log content
+            logContent.innerHTML = commandLogsFullyVisible[commandId] ? highlightedLines.join('\n') : (highlightedLines.length <= 3 ? highlightedLines.join('\n') : '...\n' + highlightedLines.slice(-2).join('\n'));
+            showLogBtn = highlightedLines.length > 3;
         }
 
         // Update log and stop button visibility
