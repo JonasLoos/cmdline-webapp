@@ -60,6 +60,9 @@ code[onClick]:hover, .command-highlight:hover {
     padding: 10px;
     margin-bottom: 10px;
 }
+.log-button {
+    margin-left: 1em;
+}
 .stop-button {
     float: right;
     background-color: #dc3545;
@@ -274,6 +277,12 @@ function sendCommand(command) {
         commandElement.className = 'command-highlight';
         commandElement.onclick = () => {cmd_input.value = command; cmd_input.focus();};
         commandHeader.appendChild(commandElement);
+        const filterInput = document.createElement('input');
+        filterInput.type = 'text';
+        filterInput.placeholder = 'Filter output...';
+        filterInput.className = 'filter-input';
+        filterInput.addEventListener('input', () => updateCommandMessage(data.id, null, commandLogs[data.id].join('\n')));  // Update on input
+        commandHeader.appendChild(filterInput);
         appendToChatLog(commandHeader, data.id);
         commandLogs[data.id] = [];
         commandLogsFullyVisible[data.id] = false;
@@ -317,19 +326,26 @@ function pollCommandStatus(commandId) {
 function updateCommandMessage(commandId, status, output) {
     const logEntry = document.getElementById(`log-${commandId}`);
     const logContent = logEntry.querySelector('.output-content');
+    const filterInput = logEntry.querySelector('.filter-input');
     let showLogBtn = false;
+
     if (logEntry) {
-        logEntry.querySelector('.status-indicator').textContent = getStatusSymbol(status);
+        if (status) logEntry.querySelector('.status-indicator').textContent = getStatusSymbol(status);
         if (output) {
             const lines = output.split('\n');
             while (!lines[lines.length-1] || lines[lines.length-1].trim() === '') lines.pop();
             commandLogs[commandId] = lines;
-            logContent.innerText = commandLogsFullyVisible[commandId] ? lines.join('\n') : (lines.length <= 3 ? lines.join('\n') : '...\n' + lines.slice(-2).join('\n'));
-            showLogBtn = lines.length > 3;
+
+            // Filter lines based on the filter input value
+            const filterValue = filterInput.value.toLowerCase();
+            const filteredLines = lines.filter(line => line.toLowerCase().includes(filterValue));
+
+            logContent.innerText = commandLogsFullyVisible[commandId] ? filteredLines.join('\n') : (filteredLines.length <= 3 ? filteredLines.join('\n') : '...\n' + filteredLines.slice(-2).join('\n'));
+            showLogBtn = filteredLines.length > 3;
         }
 
-        // Update stop button visibility
-        const logButton = logContent.previousElementSibling.previousElementSibling;
+        // Update log and stop button visibility
+        const logButton = logEntry.querySelector('#log-button-' + commandId);
         logButton.style.visibility = showLogBtn ? "initial" : "hidden";
         const stopButton = logEntry.querySelector('#stop-button-' + commandId);
         if (stopButton) {
@@ -342,7 +358,7 @@ function updateCommandMessage(commandId, status, output) {
 function createLogContent(commandId) {
     const logEntry = document.getElementById(`log-${commandId}`);
     const logButton = document.createElement('button');
-    Object.assign(logButton, {textContent: 'Show Full Log', onclick: () => toggleLog(commandId)});
+    Object.assign(logButton, {textContent: 'Show Full Log', id: `log-button-${commandId}`, className: 'log-button', onclick: () => toggleLog(commandId)});
     logEntry.appendChild(logButton);
     const stopButton = document.createElement('button');
     Object.assign(stopButton, {textContent: 'Stop', id: `stop-button-${commandId}`, className: 'stop-button', onclick: () => stopCommand(commandId)});
