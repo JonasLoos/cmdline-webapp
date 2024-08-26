@@ -277,6 +277,7 @@ function sendCommand(command) {
     })
     .then(response => response.json())
     .then(data => {
+        // create command header
         const commandHeader = document.createElement('span');
         const commandElement = document.createElement('code');
         commandElement.innerText = command;
@@ -290,10 +291,16 @@ function sendCommand(command) {
         filterInput.addEventListener('input', () => updateCommandMessage(data.id, null, commandLogs[data.id]));  // Update on input
         commandHeader.appendChild(filterInput);
         appendToChatLog(commandHeader, data.id);
-        commandLogs[data.id] = [];
+
+        // update command log
+        const lines = data.output.split('\n');
+        while (lines.length > 0 && lines.at(-1) !== undefined && lines.at(-1).trim() === '') lines.pop();
+        commandLogs[data.id] = lines;
         commandLogsFullyVisible[data.id] = false;
         createLogContent(data.id);
-        updateCommandMessage(data.id, data.status, data.output.split('\n'));
+        updateCommandMessage(data.id, data.status);
+
+        // continuously poll command status and output while it is running
         if (data.status === "queued" || data.status === "running") {
             activeCommands.add(data.id);
             pollCommandStatus(data.id);
@@ -316,7 +323,10 @@ function pollCommandStatus(commandId) {
         })
         .then(response => response.json())
         .then(data => {
-            updateCommandMessage(commandId, data.status, data.output);
+            const lines = data.output.split('\n');
+            while (lines.length > 0 && lines.at(-1) !== undefined && lines.at(-1).trim() === '') lines.pop();
+            commandLogs[data.id] = lines;
+            updateCommandMessage(commandId, data.status);
             if (data.status !== "queued" && data.status !== "running") {
                 activeCommands.delete(commandId);
             }
@@ -329,30 +339,53 @@ function pollCommandStatus(commandId) {
 }
 
 // update command message with status and output
-function updateCommandMessage(commandId, status, lines) {
+function updateCommandMessage(commandId, status) {
     const logEntry = document.getElementById(`log-${commandId}`);
     const logContent = logEntry.querySelector('.output-content');
     const filterInput = logEntry.querySelector('.filter-input');
     let showLogBtn = false;
+    let lines = commandLogs[commandId];
 
     if (logEntry) {
         if (status) logEntry.querySelector('.status-indicator').textContent = getStatusSymbol(status);
         if (lines) {
-            while (lines.length > 0 && !lines[lines.length-1] || lines[lines.length-1].trim() === '') lines.pop();
-            commandLogs[commandId] = lines;
-
             // Filter lines based on the filter input value
             const filterValue = filterInput.value.toLowerCase();
             const regex = new RegExp(filterValue, 'gi');
             const filteredLines = lines.filter(line => regex.test(line));
 
-            // Highlight matched text
+            // Highlight matched text and create elements
             const highlightedLines = filteredLines.map(line => {
-                return line.replace(regex, match => `<span class="filter-highlight">${match}</span>`);
+                const lineElement = document.createElement('div');
+                let lastIndex = 0;
+                line.replace(regex, (match, offset) => {
+                    if (offset > lastIndex) {
+                        lineElement.appendChild(document.createTextNode(line.slice(lastIndex, offset)));
+                    }
+                    const span = document.createElement('span');
+                    span.className = 'filter-highlight';
+                    span.textContent = match;
+                    lineElement.appendChild(span);
+                    lastIndex = offset + match.length;
+                });
+                if (lastIndex < line.length) {
+                    lineElement.appendChild(document.createTextNode(line.slice(lastIndex)));
+                }
+                return lineElement;
             });
 
             // Update log content
-            logContent.innerHTML = commandLogsFullyVisible[commandId] ? highlightedLines.join('\n') : (highlightedLines.length <= 3 ? highlightedLines.join('\n') : '...\n' + highlightedLines.slice(-2).join('\n'));
+            logContent.textContent = ''; // Clear existing content
+            if (commandLogsFullyVisible[commandId]) {
+                highlightedLines.forEach(line => logContent.appendChild(line));
+            } else if (highlightedLines.length <= 3) {
+                highlightedLines.forEach(line => logContent.appendChild(line));
+            } else {
+                const ellipsis = document.createElement('div');
+                ellipsis.textContent = '...';
+                logContent.appendChild(ellipsis);
+                highlightedLines.slice(-2).forEach(line => logContent.appendChild(line));
+            }
             showLogBtn = highlightedLines.length > 3;
         }
 
@@ -390,7 +423,7 @@ function toggleLog(commandId) {
     const logButton = document.getElementById(`log-button-${commandId}`);
     const logButtonEnd = document.getElementById(`log-button-end-${commandId}`);
 
-    updateCommandMessage(commandId, null, commandLogs[commandId]);
+    updateCommandMessage(commandId, null);
 
     if (commandLogsFullyVisible[commandId]) {
         logButton.textContent = "Collapse Log";
